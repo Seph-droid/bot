@@ -89,6 +89,10 @@ class BearTrapSchedule(commands.Cog):
             self.cursor.execute("ALTER TABLE notification_schedule_boards ADD COLUMN hide_daily_reset INTEGER DEFAULT 1")
 
         self.conn.commit()
+
+        # Single lock for board updates
+        self._board_update_lock = asyncio.Lock()
+
         self.logger.info("[SCHEDULE] Cog initialized successfully")
 
     async def cog_load(self):
@@ -180,6 +184,8 @@ class BearTrapSchedule(commands.Cog):
 
                     except Exception as e:
                         self.logger.error(f"[SCHEDULE] Error refreshing timezone {tz_str}: {e}")
+                        print(f"[ERROR] Error refreshing timezone {tz_str}: {e}")
+                        self.conn.rollback()
                         continue
 
                 # Sleep for 60 seconds before next check
@@ -187,27 +193,28 @@ class BearTrapSchedule(commands.Cog):
 
             except Exception as e:
                 self.logger.error(f"[SCHEDULE] Error in daily refresh loop: {e}")
+                print(f"[ERROR] Error in daily refresh loop: {e}")
+                self.conn.rollback()
                 await asyncio.sleep(60)  # Continue even if error occurs
 
     async def urgency_update_loop(self):
         """Background task that updates boards when events transition to SOON or IMMINENT"""
         await self.bot.wait_until_ready()
 
+        # Stagger by 30 seconds to reduce collision with daily_refresh_loop
+        await asyncio.sleep(30)
+
         while not self.bot.is_closed():
             try:
                 now_utc = datetime.now(pytz.UTC)
 
                 # Get all notifications that are approaching
-                svs_conn = sqlite3.connect('db/svs.sqlite')
-                svs_cursor = svs_conn.cursor()
-
-                svs_cursor.execute("""
+                self.cursor.execute("""
                     SELECT id, channel_id, next_notification
                     FROM bear_notifications
                     WHERE is_enabled = 1 AND next_notification IS NOT NULL
                 """)
-                notifications = svs_cursor.fetchall()
-                svs_conn.close()
+                notifications = self.cursor.fetchall()
 
                 boards_to_update = set()
 
@@ -231,17 +238,21 @@ class BearTrapSchedule(commands.Cog):
 
                         if crossing_threshold:
                             # Find all boards that should show this notification
+                            channel = self.bot.get_channel(channel_id)
+                            if not channel:
+                                continue  # Skip if channel not accessible
+
+                            guild_id = channel.guild.id
+
                             self.cursor.execute("""
                                 SELECT DISTINCT nsb.id
                                 FROM notification_schedule_boards nsb
-                                WHERE nsb.guild_id IN (
-                                    SELECT guild_id FROM channels WHERE id = ?
-                                )
+                                WHERE nsb.guild_id = ?
                                 AND (
                                     (nsb.board_type = 'server')
                                     OR (nsb.board_type = 'channel' AND nsb.target_channel_id = ?)
                                 )
-                            """, (channel_id, channel_id))
+                            """, (guild_id, channel_id))
 
                             for (board_id,) in self.cursor.fetchall():
                                 boards_to_update.add(board_id)
@@ -261,6 +272,8 @@ class BearTrapSchedule(commands.Cog):
 
             except Exception as e:
                 self.logger.error(f"[SCHEDULE] Error in urgency update loop: {e}")
+                print(f"[ERROR] Error in urgency update loop: {e}")
+                self.conn.rollback()
                 await asyncio.sleep(300)  # Continue even if error occurs
 
     async def create_schedule_board(self, guild_id: int, channel_id: int, board_type: str,
@@ -1026,66 +1039,68 @@ class BearTrapSchedule(commands.Cog):
         Updates a schedule board by regenerating and editing the Discord message.
         Returns True if successful, False otherwise.
         """
-        try:
-            # Fetch board info
-            self.cursor.execute("""
-                SELECT channel_id, message_id FROM notification_schedule_boards
-                WHERE id = ?
-            """, (board_id,))
-            result = self.cursor.fetchone()
-
-            if not result:
-                print(f"[WARNING] Board {board_id} not found in database")
-                return False
-
-            channel_id, message_id = result
-
-            # Get channel and message
-            channel = self.bot.get_channel(channel_id)
-            if not channel:
-                print(f"[WARNING] Channel {channel_id} not found, removing board {board_id}")
-                self.cursor.execute("DELETE FROM notification_schedule_boards WHERE id = ?", (board_id,))
-                self.conn.commit()
-                return False
-
+        # Acquire lock to prevent concurrent updates
+        async with self._board_update_lock:
             try:
-                message = await channel.fetch_message(message_id)
-            except discord.NotFound:
-                print(f"[WARNING] Message {message_id} not found, removing board {board_id}")
-                self.cursor.execute("DELETE FROM notification_schedule_boards WHERE id = ?", (board_id,))
+                # Fetch board info
+                self.cursor.execute("""
+                    SELECT channel_id, message_id FROM notification_schedule_boards
+                    WHERE id = ?
+                """, (board_id,))
+                result = self.cursor.fetchone()
+
+                if not result:
+                    print(f"[WARNING] Board {board_id} not found in database")
+                    return False
+
+                channel_id, message_id = result
+
+                # Get channel and message
+                channel = self.bot.get_channel(channel_id)
+                if not channel:
+                    print(f"[WARNING] Channel {channel_id} not found, removing board {board_id}")
+                    self.cursor.execute("DELETE FROM notification_schedule_boards WHERE id = ?", (board_id,))
+                    self.conn.commit()
+                    return False
+
+                try:
+                    message = await channel.fetch_message(message_id)
+                except discord.NotFound:
+                    print(f"[WARNING] Message {message_id} not found, removing board {board_id}")
+                    self.cursor.execute("DELETE FROM notification_schedule_boards WHERE id = ?", (board_id,))
+                    self.conn.commit()
+                    return False
+                except Exception as e:
+                    print(f"[ERROR] Failed to fetch message: {e}")
+                    return False
+
+                # Generate new embed
+                embed = await self.generate_schedule_embed(board_id, page=0)
+
+                # Create pagination view
+                total_pages = self._get_total_pages_from_footer(embed.footer.text if embed.footer else "")
+                view = ScheduleBoardPaginationView(self, board_id, current_page=0, total_pages=total_pages)
+
+                # Edit message
+                await message.edit(embed=embed, view=view)
+
+                # Update last_updated timestamp
+                self.cursor.execute("""
+                    UPDATE notification_schedule_boards
+                    SET last_updated = ?
+                    WHERE id = ?
+                """, (datetime.now(pytz.UTC).isoformat(), board_id))
                 self.conn.commit()
-                return False
+
+                self.logger.debug(f"[SCHEDULE] Board updated - ID: {board_id}")
+
+                return True
+
             except Exception as e:
-                print(f"[ERROR] Failed to fetch message: {e}")
+                self.logger.error(f"[SCHEDULE] Failed to update board {board_id}: {e}")
+                print(f"[ERROR] Failed to update board {board_id}: {e}")
+                self.conn.rollback()
                 return False
-
-            # Generate new embed
-            embed = await self.generate_schedule_embed(board_id, page=0)
-
-            # Create pagination view
-            total_pages = self._get_total_pages_from_footer(embed.footer.text if embed.footer else "")
-            view = ScheduleBoardPaginationView(self, board_id, current_page=0, total_pages=total_pages)
-
-            # Edit message
-            await message.edit(embed=embed, view=view)
-
-            # Update last_updated timestamp
-            self.cursor.execute("""
-                UPDATE notification_schedule_boards
-                SET last_updated = ?
-                WHERE id = ?
-            """, (datetime.now(pytz.UTC).isoformat(), board_id))
-            self.conn.commit()
-
-            self.logger.debug(f"[SCHEDULE] Board updated - ID: {board_id}")
-
-            return True
-
-        except Exception as e:
-            self.logger.error(f"[SCHEDULE] Failed to update board - ID: {board_id}, Error: {e}")
-            print(f"[ERROR] Failed to update schedule board {board_id}: {e}")
-            traceback.print_exc()
-            return False
 
     async def update_all_boards_for_guild(self, guild_id: int):
         """Updates all boards for a given server"""

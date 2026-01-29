@@ -216,6 +216,10 @@ class BearTrap(commands.Cog):
         if hasattr(self, 'deletion_task'):
             self.deletion_task.cancel()
 
+        # Close database connection
+        if hasattr(self, 'conn'):
+            self.conn.close()
+
     def should_warn_about_channel(self, channel_id: int) -> bool:
         """Check if we should warn about this channel being unavailable."""
         current_time = time.time()
@@ -2704,8 +2708,9 @@ class SettingsView(discord.ui.View):
         self.cog = cog
         self.delete_enabled = delete_enabled
         self.default_delay = default_delay
-        self.conn = sqlite3.connect('db/beartime.sqlite')
-        self.cursor = self.conn.cursor()
+        # Use cog's connection instead of creating new one
+        self.conn = cog.conn
+        self.cursor = cog.cursor
 
     def build_settings_embed(self):
         """Build the settings embed with current values"""
@@ -2821,8 +2826,9 @@ class BearTrapView(discord.ui.View):
     def __init__(self, cog):
         super().__init__(timeout=None)
         self.cog = cog
-        self.conn = sqlite3.connect('db/beartime.sqlite')
-        self.cursor = self.conn.cursor()
+        # Use cog's connection instead of creating new one
+        self.conn = cog.conn
+        self.cursor = cog.cursor
 
     @discord.ui.button(
         label="Setup Wizard",
