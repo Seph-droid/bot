@@ -6,7 +6,6 @@ import ssl
 import time
 import asyncio
 import sqlite3
-from .pimp_my_bot import theme
 
 class WCommand(commands.Cog):
     def __init__(self, bot):
@@ -112,21 +111,21 @@ class WCommand(commands.Cog):
                                         alliance_info = cursor.fetchone()
 
                             embed = discord.Embed(
-                                title=f"{theme.userIcon} {nickname}",
+                                title=f"👤 {nickname}",
                                 description=(
-                                    f"{theme.upperDivider}\n"
-                                    f"**{theme.fidIcon} ID:** `{fid_value}`\n"
-                                    f"**{theme.levelIcon} Furnace Level:** `{stove_level_name}`\n"
-                                    f"**{theme.globeIcon} State:** `{kid}`\n"
-                                    f"{theme.middleDivider}\n"
+                                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                    f"**🆔 ID:** `{fid_value}`\n"
+                                    f"**🔥 Furnace Level:** `{stove_level_name}`\n"
+                                    f"**🌍 State:** `{kid}`\n"
+                                    "━━━━━━━━━━━━━━━━━━━━━━\n"
                                 ),
-                                color=theme.emColor1
+                                color=discord.Color.blue()
                             )
 
                             if alliance_info:
-                                embed.description += f"**{theme.allianceIcon} Alliance:** `{alliance_info[0]}`\n{theme.lowerDivider}\n"
+                                embed.description += f"**🏰 Alliance:** `{alliance_info[0]}`\n━━━━━━━━━━━━━━━━━━━━━━\n"
 
-                            registration_status = f"Registered on the List {theme.verifiedIcon}" if user_info else f"Not on the List {theme.deniedIcon}"
+                            registration_status = "Registered on the List ✅" if user_info else "Not on the List ❌"
                             embed.set_footer(text=registration_status)
 
                             if avatar_image:

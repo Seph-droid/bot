@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import sqlite3
-from .pimp_my_bot import theme
 
 class GNCommands(commands.Cog):
     def __init__(self, bot):
@@ -32,13 +31,13 @@ class GNCommands(commands.Cog):
                     auto_value = auto_result[0] if auto_result else 1
                     
                     # Check OCR initialization status
-                    ocr_status = f"{theme.deniedIcon}"
+                    ocr_status = "❌"
                     ocr_details = "Not initialized"
                     try:
                         gift_operations_cog = self.bot.get_cog('GiftOperations')
                         if gift_operations_cog and hasattr(gift_operations_cog, 'captcha_solver'):
                             if gift_operations_cog.captcha_solver and gift_operations_cog.captcha_solver.is_initialized:
-                                ocr_status = f"{theme.verifiedIcon}"
+                                ocr_status = "✅"
                                 ocr_details = "Gift Code Redeemer (OCR) ready"
                             else:
                                 ocr_details = "Solver not initialized"
@@ -48,27 +47,27 @@ class GNCommands(commands.Cog):
                         ocr_details = f"Error checking OCR: {str(e)[:30]}..."
                     
                     status_embed = discord.Embed(
-                        title=f"{theme.robotIcon} Bot Successfully Activated",
+                        title="🤖 Bot Successfully Activated",
                         description=(
-                            f"{theme.upperDivider}\n"
-                            f"**System Status**\n"
-                            f"{theme.verifiedIcon} Bot is now online and operational\n"
-                            f"{theme.verifiedIcon} Database connections established\n"
-                            f"{theme.verifiedIcon} Command systems initialized\n"
-                            f"{theme.verifiedIcon if auto_value == 1 else theme.deniedIcon} Alliance Control Messages\n"
+                            "━━━━━━━━━━━━━━━━━━━━━━\n"
+                            "**System Status**\n"
+                            "✅ Bot is now online and operational\n"
+                            "✅ Database connections established\n"
+                            "✅ Command systems initialized\n"
+                            f"{'✅' if auto_value == 1 else '❌'} Alliance Control Messages\n"
                             f"{ocr_status} {ocr_details}\n"
-                            f"{theme.middleDivider}\n"
+                            "━━━━━━━━━━━━━━━━━━━━━━\n"
                         ),
                         color=discord.Color.green()
                     )
 
                     status_embed.add_field(
-                        name=f"{theme.pinIcon} Community & Support",
+                        name="📌 Community & Support",
                         value=(
-                            f"**GitHub Repository:** [Whiteout Project](https://github.com/whiteout-project/bot)\n"
-                            f"**Discord Community:** [Join our Discord](https://discord.gg/apYByj6K2m)\n"
-                            f"**Bug Reports:** [GitHub Issues](https://github.com/whiteout-project/bot/issues)\n"
-                            f"{theme.lowerDivider}"
+                            "**GitHub Repository:** [Whiteout Project](https://github.com/whiteout-project/bot)\n"
+                            "**Discord Community:** [Join our Discord](https://discord.gg/apYByj6K2m)\n"
+                            "**Bug Reports:** [GitHub Issues](https://github.com/whiteout-project/bot/issues)\n"
+                            "━━━━━━━━━━━━━━━━━━━━━━"
                         ),
                         inline=False
                     )
@@ -93,7 +92,7 @@ class GNCommands(commands.Cog):
                                 cursor = users_db.cursor()
                                 cursor.execute("SELECT COUNT(*) FROM users WHERE alliance = ?", (alliance_id,))
                                 user_count = cursor.fetchone()[0]
-                                info_parts.append(f"{theme.userIcon} Members: {user_count}")
+                                info_parts.append(f"👥 Members: {user_count}")
                             
                             with sqlite3.connect('db/alliance.sqlite') as alliance_db:
                                 cursor = alliance_db.cursor()
@@ -104,34 +103,34 @@ class GNCommands(commands.Cog):
                                     if server_id:
                                         guild = self.bot.get_guild(server_id)
                                         if guild:
-                                            info_parts.append(f"{theme.globeIcon} Server Name: {guild.name}")
+                                            info_parts.append(f"🌐 Server Name: {guild.name}")
                                         else:
-                                            info_parts.append(f"{theme.globeIcon} Server ID: {server_id}")
+                                            info_parts.append(f"🌐 Server ID: {server_id}")
                             
                                 cursor.execute("SELECT channel_id, interval FROM alliancesettings WHERE alliance_id = ?", (alliance_id,))
                                 settings = cursor.fetchone()
                                 if settings:
                                     if settings[0]:
-                                        info_parts.append(f"{theme.announceIcon} Channel: <#{settings[0]}>")
-                                    interval_text = f"{theme.timeIcon} Auto Check: {settings[1]} minutes" if settings[1] > 0 else f"{theme.timeIcon} No Auto Check"
+                                        info_parts.append(f"📢 Channel: <#{settings[0]}>")
+                                    interval_text = f"⏱️ Auto Check: {settings[1]} minutes" if settings[1] > 0 else "⏱️ No Auto Check"
                                     info_parts.append(interval_text)
                             
                             with sqlite3.connect('db/giftcode.sqlite') as gift_db:
                                 cursor = gift_db.cursor()
                                 cursor.execute("SELECT status FROM giftcodecontrol WHERE alliance_id = ?", (alliance_id,))
                                 gift_status = cursor.fetchone()
-                                gift_text = f"{theme.giftIcon} Gift System: Active" if gift_status and gift_status[0] == 1 else f"{theme.giftIcon} Gift System: Inactive"
+                                gift_text = "🎁 Gift System: Active" if gift_status and gift_status[0] == 1 else "🎁 Gift System: Inactive"
                                 info_parts.append(gift_text)
-
+                                
                                 cursor.execute("SELECT channel_id FROM giftcode_channel WHERE alliance_id = ?", (alliance_id,))
                                 gift_channel = cursor.fetchone()
                                 if gift_channel and gift_channel[0]:
-                                    info_parts.append(f"{theme.giftIcon} Gift Channel: <#{gift_channel[0]}>")
+                                    info_parts.append(f"🎉 Gift Channel: <#{gift_channel[0]}>")
                             
                             alliance_info.append(
-                                f"**{name}**\n" +
+                                f"**{name}**\n" + 
                                 "\n".join(f"> {part}" for part in info_parts) +
-                                f"\n{theme.lowerDivider}"
+                                "\n━━━━━━━━━━━━━━━━━━━━━━"
                             )
 
                         pages = [alliance_info[i:i + ALLIANCES_PER_PAGE] 
@@ -139,17 +138,17 @@ class GNCommands(commands.Cog):
 
                         for page_num, page in enumerate(pages, 1):
                             alliance_embed = discord.Embed(
-                                title=f"{theme.chartIcon} Alliance Information (Page {page_num}/{len(pages)})",
-                                color=theme.emColor1
+                                title=f"📊 Alliance Information (Page {page_num}/{len(pages)})",
+                                color=discord.Color.blue()
                             )
                             alliance_embed.description = "\n".join(page)
                             await admin_user.send(embed=alliance_embed)
 
                     else:
                         alliance_embed = discord.Embed(
-                            title=f"{theme.chartIcon} Alliance Information",
+                            title="📊 Alliance Information",
                             description="No alliances currently registered.",
-                            color=theme.emColor1
+                            color=discord.Color.blue()
                         )
                         await admin_user.send(embed=alliance_embed)
 

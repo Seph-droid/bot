@@ -5,8 +5,6 @@ import sqlite3
 import aiohttp
 import time
 import ssl
-from .permission_handler import PermissionManager
-from .pimp_my_bot import theme
 
 class RegisterSettingsView(discord.ui.View):
     def __init__(self, cog):
@@ -34,7 +32,7 @@ class RegisterSettingsView(discord.ui.View):
 
     @discord.ui.button(
         label="Enable",
-        emoji=f"{theme.verifiedIcon}",
+        emoji="✅",
         style=discord.ButtonStyle.success,
         custom_id="enable_register",
         row=0
@@ -42,13 +40,13 @@ class RegisterSettingsView(discord.ui.View):
     async def enable_register_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             self.change_settings(True)
-            await interaction.response.send_message(f"{theme.verifiedIcon} Registration has been enabled.", ephemeral=True)
+            await interaction.response.send_message("✅ Registration has been enabled.", ephemeral=True)
         except Exception as _:
-            await interaction.response.send_message(f"{theme.deniedIcon} An error occurred while enabling registration.", ephemeral=True)
+            await interaction.response.send_message("❌ An error occurred while enabling registration.", ephemeral=True)
             
     @discord.ui.button(
         label="Disable",
-        emoji=f"{theme.deniedIcon}",
+        emoji="❌",
         style=discord.ButtonStyle.danger,
         custom_id="disable_register",
         row=0
@@ -56,9 +54,9 @@ class RegisterSettingsView(discord.ui.View):
     async def disable_register_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             self.change_settings(False)
-            await interaction.response.send_message(f"{theme.deniedIcon} Registration has been disabled.", ephemeral=True)
+            await interaction.response.send_message("❌ Registration has been disabled.", ephemeral=True)
         except Exception as _:
-            await interaction.response.send_message(f"{theme.deniedIcon} An error occurred while disabling registration.", ephemeral=True)
+            await interaction.response.send_message("❌ An error occurred while disabling registration.", ephemeral=True)
 
 class Register(commands.Cog):
     def __init__(self, bot):
@@ -75,14 +73,13 @@ class Register(commands.Cog):
         self.conn_users.close()
 
     async def show_settings_menu(self, interaction: discord.Interaction):
-        is_admin, is_global = PermissionManager.is_admin(interaction.user.id)
-        if not is_admin or not is_global:
+        if not self.is_global_admin(interaction.user.id):
             await interaction.response.send_message(
-                f"{theme.deniedIcon} You do not have permission to access this command.",
+                "❌ You do not have permission to access this command.",
                 ephemeral=True
             )
             return
-
+        
         view = RegisterSettingsView(self)
         
         await interaction.response.send_message(
@@ -90,6 +87,14 @@ class Register(commands.Cog):
             view=view,
             ephemeral=True
         )
+        
+    def is_global_admin(self, user_id: int) -> bool:
+        with sqlite3.connect("db/settings.sqlite") as settings_db:
+            cursor = settings_db.cursor()
+            cursor.execute("SELECT is_initial FROM admin WHERE id = ?", (user_id,))
+            result = cursor.fetchone()
+            
+            return result is not None and result[0] == 1
         
     def is_already_in_users(self, fid: int) -> bool:
         """Check if a user with the given fid is already registered."""
@@ -168,14 +173,14 @@ class Register(commands.Cog):
     async def register(self, interaction: discord.Interaction, fid: int, alliance: int):
         if not self.is_registration_enabled():
             await interaction.response.send_message(
-                f"{theme.deniedIcon} Registration is currently disabled.",
+                "❌ Registration is currently disabled.",
                 ephemeral=True
             )
             return
         
         if self.is_already_in_users(fid):
             await interaction.response.send_message(
-                f"{theme.deniedIcon} You are already registered in the bot's database.",
+                "❌ You are already registered in the bot's database.",
                 ephemeral=True
             )
             return
@@ -187,9 +192,9 @@ class Register(commands.Cog):
                 error_msg = api_response.get("msg", "Unknown error")
                 
                 if "role not exist" in error_msg.lower():
-                    display_msg = f"{theme.deniedIcon} Invalid ID. Please try again."
+                    display_msg = "❌ Invalid ID. Please try again."
                 else:
-                    display_msg = f"{theme.deniedIcon} Invalid ID: {error_msg}"
+                    display_msg = f"❌ Invalid ID: {error_msg}"
                 
                 await interaction.response.send_message(
                     display_msg,
@@ -199,7 +204,7 @@ class Register(commands.Cog):
             
             if "data" not in api_response:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} Invalid response from server. Please try again later.",
+                    "❌ Invalid response from server. Please try again later.",
                     ephemeral=True
                 )
                 return
@@ -215,7 +220,7 @@ class Register(commands.Cog):
             else:
                 print(f"Error fetching user data for FID {fid}: {e}")
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} Failed to fetch user data. Please try again later.",
+                    "❌ Failed to fetch user data. Please try again later.",
                     ephemeral=True
                 )
             return

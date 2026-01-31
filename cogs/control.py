@@ -9,7 +9,6 @@ import traceback
 import logging
 from logging.handlers import RotatingFileHandler
 from .login_handler import LoginHandler
-from .pimp_my_bot import theme
 
 level_mapping = {
     31: "30-1", 32: "30-2", 33: "30-3", 34: "30-4",
@@ -89,16 +88,10 @@ class Control(commands.Cog):
         
         if 'notify_on_transfer' not in columns:
             self.cursor_alliance.execute("""
-                ALTER TABLE alliancesettings
+                ALTER TABLE alliancesettings 
                 ADD COLUMN notify_on_transfer INTEGER DEFAULT 0
             """)
-
-        if 'start_time' not in columns:
-            self.cursor_alliance.execute("""
-                ALTER TABLE alliancesettings
-                ADD COLUMN start_time TEXT DEFAULT NULL
-            """)
-
+        
         self.conn_alliance.commit()
 
         # Create invalid_id_tracker table for 3-strike removal system
@@ -119,7 +112,6 @@ class Control(commands.Cog):
         self.alliance_tasks = {}
         self.is_running = {}
         self.monitor_started = False
-        self.current_task_settings = {}  # {alliance_id: (channel_id, interval, start_time)}
 
         # Initialize login handler for centralized queue management
         self.login_handler = LoginHandler()
@@ -273,31 +265,31 @@ class Control(commands.Cog):
                 if is_batch and batch_info:
                     # For batch processing (all alliances)
                     status_embed = discord.Embed(
-                        title=f"{theme.refreshIcon} Alliance Control Operation",
+                        title="🔄 Alliance Control Operation",
                         description=(
-                            f"{theme.upperDivider}\n"
-                            f"{theme.chartIcon} **Type:** All Alliances ({batch_info['total']} total)\n"
-                            f"{theme.allianceIcon} **Currently Processing:** {alliance_name}\n"
-                            f"{theme.pinIcon} **Progress:** {batch_info['current']}/{batch_info['total']} alliances\n"
-                            f"{theme.timeIcon} **Started:** <t:{int(start_time.timestamp())}:R>\n"
-                            f"{theme.lowerDivider}"
+                            "━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"📊 **Type:** All Alliances ({batch_info['total']} total)\n"
+                            f"🏰 **Currently Processing:** {alliance_name}\n"
+                            f"📍 **Progress:** {batch_info['current']}/{batch_info['total']} alliances\n"
+                            f"⏰ **Started:** <t:{int(start_time.timestamp())}:R>\n"
+                            "━━━━━━━━━━━━━━━━━━━━━━"
                         ),
-                        color=theme.emColor1
+                        color=discord.Color.blue()
                     )
                 else:
                     # For single alliance processing
                     status_embed = discord.Embed(
-                        title=f"{theme.refreshIcon} Alliance Control Operation",
+                        title="🔄 Alliance Control Operation",
                         description=(
-                            f"{theme.upperDivider}\n"
-                            f"{theme.chartIcon} **Type:** Single Alliance\n"
-                            f"{theme.allianceIcon} **Alliance:** {alliance_name}\n"
-                            f"{theme.pinIcon} **Status:** In Progress\n"
-                            f"{theme.timeIcon} **Started:** <t:{int(start_time.timestamp())}:R>\n"
-                            f"{theme.announceIcon} **Results Channel:** {channel.mention}\n"
-                            f"{theme.lowerDivider}"
+                            "━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"📊 **Type:** Single Alliance\n"
+                            f"🏰 **Alliance:** {alliance_name}\n"
+                            f"📍 **Status:** In Progress\n"
+                            f"⏰ **Started:** <t:{int(start_time.timestamp())}:R>\n"
+                            f"📢 **Results Channel:** {channel.mention}\n"
+                            "━━━━━━━━━━━━━━━━━━━━━━"
                         ),
-                        color=theme.emColor1
+                        color=discord.Color.blue()
                     )
                 await interaction_message.edit(embed=status_embed)
             except Exception as e:
@@ -311,21 +303,21 @@ class Control(commands.Cog):
                 auto_value = result[0] if result else 1
         
         embed = discord.Embed(
-            title=f"{theme.allianceIcon} {alliance_name} Alliance Control",
-            description=f"{theme.searchIcon} Checking for changes in member status...",
-            color=theme.emColor1
+            title=f"🏰 {alliance_name} Alliance Control",
+            description="🔍 Checking for changes in member status...",
+            color=discord.Color.blue()
         )
         embed.add_field(
-            name=f"{theme.chartIcon} Status",
-            value=f"{theme.hourglassIcon} Control started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}",
+            name="📊 Status",
+            value=f"⏳ Control started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}",
             inline=False
         )
         embed.add_field(
-            name=f"{theme.chartIcon} Progress",
-            value=f"{theme.verifiedIcon} Members checked: {checked_users}/{total_users}",
+            name="📈 Progress",
+            value=f"✨ Members checked: {checked_users}/{total_users}",
             inline=False
         )
-        embed.set_footer(text=f"{theme.boltIcon} Automatic Alliance Control System")
+        embed.set_footer(text="⚡ Automatic Alliance Control System")
         
         message = None
         if auto_value == 1:
@@ -350,14 +342,14 @@ class Control(commands.Cog):
                     # Get wait time from login handler
                     wait_time = self.login_handler._get_wait_time()
                     
-                    embed.description = f"{theme.warnIcon} API Rate Limit! Waiting {wait_time:.1f} seconds...\n📊 Progress: {checked_users}/{total_users} members"
+                    embed.description = f"⚠️ API Rate Limit! Waiting {wait_time:.1f} seconds...\n📊 Progress: {checked_users}/{total_users} members"
                     embed.color = discord.Color.orange()
                     if message:
                         await message.edit(embed=embed)
                     
                     await asyncio.sleep(wait_time)
                     
-                    embed.description = f"{theme.searchIcon} Checking for changes in member status..."
+                    embed.description = "🔍 Checking for changes in member status..."
                     embed.color = discord.Color.blue()
                     if message:
                         await message.edit(embed=embed)
@@ -374,14 +366,14 @@ class Control(commands.Cog):
 
                             if fail_count >= 3:  # Silently track failures 1 and 2, remove after 3
                                 members_to_remove.append((fid, old_nickname, "Player does not exist (3x confirmed)"))
-                                check_fail_list.append(f"{theme.deniedIcon} `{fid}` ({old_nickname}) - Player not found 3x in a row - Pending removal")
+                                check_fail_list.append(f"❌ `{fid}` ({old_nickname}) - Player not found 3x in a row - Pending removal")
                         elif self.is_connection_error(error_msg):
-                            # Network/connection issue - NOT an invalid member, just track FID for summary
-                            connection_errors.append(fid)
+                            # Network/connection issue - NOT an invalid member, just a connection issue
+                            connection_errors.append(f"⚠️ `{fid}` ({old_nickname}) - Connection issue (will retry, check bot connectivity)")
                             self.logger.warning(f"Connection issue checking ID {fid}: {error_msg}")
                         else:
                             # For other API errors, report without removing
-                            check_fail_list.append(f"{theme.deniedIcon} `{fid}` - {error_msg}")
+                            check_fail_list.append(f"❌ `{fid}` - {error_msg}")
                             self.logger.warning(f"Failed to check ID {fid}: {error_msg}")
 
                         checked_users += 1
@@ -403,7 +395,7 @@ class Control(commands.Cog):
                                 self.conn_users.commit()
 
                             if old_kid != new_kid:
-                                kid_changes.append(f"{theme.userIcon} {old_nickname} has transferred to a new state\n{theme.stateOldIcon} Old State: {old_kid}\n{theme.stateIcon} New State: {new_kid}")
+                                kid_changes.append(f"👤 {old_nickname} has transferred to a new state\n🔄 Old State: {old_kid}\n🆕 New State: {new_kid}")
                                 
                                 # Check if auto-removal is enabled for this alliance
                                 auto_remove = self.get_auto_remove_setting(alliance_id)
@@ -422,7 +414,7 @@ class Control(commands.Cog):
                                         if admin_data:
                                             user = await self.bot.fetch_user(admin_data[0])
                                             if user:
-                                                await user.send(f"{theme.deniedIcon} {old_nickname} `{fid}` was removed from the users table due to state transfer.")
+                                                await user.send(f"❌ {old_nickname} `{fid}` was removed from the users table due to state transfer.")
                                 else:
                                     # Just update kid without removing (default behavior)
                                     self.cursor_users.execute("UPDATE users SET kid = ? WHERE fid = ?", (new_kid, fid))
@@ -436,7 +428,7 @@ class Control(commands.Cog):
                                 self.conn_changes.commit()
                                 self.cursor_users.execute("UPDATE users SET furnace_lv = ? WHERE fid = ?", (new_furnace_lv, fid))
                                 self.conn_users.commit()
-                                furnace_changes.append(f"{theme.userIcon} **{old_nickname}**\n{theme.stoveOldIcon} `{old_furnace_display}` {theme.forwardIcon} {theme.stoveIcon} `{new_furnace_display}`")
+                                furnace_changes.append(f"👤 **{old_nickname}**\n🔥 `{old_furnace_display}` ➡️ `{new_furnace_display}`")
 
                             if new_nickname.lower() != old_nickname.lower().strip():
                                 self.cursor_changes.execute("INSERT INTO nickname_changes (fid, old_nickname, new_nickname, change_date) VALUES (?, ?, ?, ?)",
@@ -444,13 +436,13 @@ class Control(commands.Cog):
                                 self.conn_changes.commit()
                                 self.cursor_users.execute("UPDATE users SET nickname = ? WHERE fid = ?", (new_nickname, fid))
                                 self.conn_users.commit()
-                                nickname_changes.append(f"{theme.avatarOldIcon} `{old_nickname}` {theme.forwardIcon} {theme.avatarIcon} `{new_nickname}`")
+                                nickname_changes.append(f"📝 `{old_nickname}` ➡️ `{new_nickname}`")
 
                         checked_users += 1
                 embed.set_field_at(
                     1,
-                    name=f"{theme.chartIcon} Progress",
-                    value=f"{theme.verifiedIcon} Members checked: {checked_users}/{total_users}",
+                    name="📈 Progress",
+                    value=f"✨ Members checked: {checked_users}/{total_users}",
                     inline=False
                 )
                 if message:
@@ -468,24 +460,24 @@ class Control(commands.Cog):
 
             # Send alert to channel
             alert_embed = discord.Embed(
-                title=f"{theme.warnIcon} BULK REMOVAL BLOCKED - SAFETY TRIGGERED",
+                title="⚠️ BULK REMOVAL BLOCKED - SAFETY TRIGGERED",
                 description=(
                     f"**Alliance Check Safety System Activated**\n"
-                    f"{theme.upperDivider}\n"
-                    f"{theme.allianceIcon} **Alliance:** {alliance_name}\n"
-                    f"{theme.userIcon} **Total Members:** {total_users}\n"
-                    f"{theme.deniedIcon} **Attempted Removals:** {removal_count}\n"
-                    f"{theme.chartIcon} **Percentage:** {removal_percentage:.1f}%\n"
-                    f"{theme.allianceIcon} **Threshold:** 20%\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"🏰 **Alliance:** {alliance_name}\n"
+                    f"👥 **Total Members:** {total_users}\n"
+                    f"❌ **Attempted Removals:** {removal_count}\n"
+                    f"📊 **Percentage:** {removal_percentage:.1f}%\n"
+                    f"🛡️ **Threshold:** 20%\n\n"
                     f"**Reason:** Removing more than 20% of members suggests a potential API issue.\n\n"
                     f"**Members that would have been removed:**\n"
                     + "\n".join([f"• `{fid}` ({nickname})" for fid, nickname, _ in members_to_remove[:10]])
                     + (f"\n• ... and {removal_count - 10} more" if removal_count > 10 else "")
-                    + f"\n\n{theme.warnIcon} **Action Required:** Please verify these members manually or wait for API issues to resolve."
+                    + f"\n\n⚠️ **Action Required:** Please verify these members manually or wait for API issues to resolve."
                 ),
-                color=theme.emColor2
+                color=discord.Color.red()
             )
-            alert_embed.set_footer(text=f"{theme.allianceIcon} Automatic Safety System | No members were removed")
+            alert_embed.set_footer(text="🛡️ Automatic Safety System | No members were removed")
             await channel.send(embed=alert_embed)
 
             # Update check_fail_list to show blocked status instead of pending
@@ -516,98 +508,88 @@ class Control(commands.Cog):
             if furnace_changes:
                 await self.send_embed(
                     channel=channel,
-                    title=f"{theme.levelIcon} **{alliance_name}** Furnace Level Changes",
+                    title=f"🔥 **{alliance_name}** Furnace Level Changes",
                     description=safe_list(furnace_changes),
                     color=discord.Color.orange(),
-                    footer=f"{theme.chartIcon} Total Changes: {len(furnace_changes)}"
+                    footer=f"📊 Total Changes: {len(furnace_changes)}"
                 )
 
             if nickname_changes:
                 await self.send_embed(
                     channel=channel,
-                    title=f"{theme.editListIcon} **{alliance_name}** Nickname Changes",
+                    title=f"📝 **{alliance_name}** Nickname Changes",
                     description=safe_list(nickname_changes),
-                    color=theme.emColor1,
-                    footer=f"{theme.chartIcon} Total Changes: {len(nickname_changes)}"
+                    color=discord.Color.blue(),
+                    footer=f"📊 Total Changes: {len(nickname_changes)}"
                 )
 
             if kid_changes:
                 await self.send_embed(
                     channel=channel,
-                    title=f"{theme.stateIcon} **{alliance_name}** State Transfer Notifications",
+                    title=f"🌍 **{alliance_name}** State Transfer Notifications",
                     description=safe_list(kid_changes),
-                    color=theme.emColor3,
-                    footer=f"{theme.chartIcon} Total Changes: {len(kid_changes)}"
+                    color=discord.Color.green(),
+                    footer=f"📊 Total Changes: {len(kid_changes)}"
                 )
 
             if check_fail_list:
                 # Count removed entries
                 removed_count = sum(1 for item in check_fail_list if "- Removed" in item)
 
-                footer_text = f"{theme.chartIcon} Total Issues: {len(check_fail_list)}"
+                footer_text = f"📊 Total Issues: {len(check_fail_list)}"
                 if removed_count > 0:
-                    footer_text += f" | {theme.trashIcon} Removed: {removed_count}"
+                    footer_text += f" | 🗑️ Removed: {removed_count}"
                 
                 await self.send_embed(
                     channel=channel,
-                    title=f"{theme.deniedIcon} **{alliance_name}** Invalid Members Detected",
+                    title=f"❌ **{alliance_name}** Invalid Members Detected",
                     description=safe_list(check_fail_list),
-                    color=theme.emColor2,
+                    color=discord.Color.red(),
                     footer=footer_text
                 )
 
             if connection_errors:
                 # Connection issues are informational - members NOT removed
-                if len(connection_errors) <= 5:
-                    # Show specific IDs for small numbers
-                    description = "\n".join([f"{theme.warnIcon} `{fid}` - Connection issue" for fid in connection_errors])
-                else:
-                    # Show summary for large numbers (API likely down)
-                    description = (
-                        f"{theme.chartIcon} **{len(connection_errors)}** member(s) had connection issues\n"
-                        f"{theme.linkIcon} Unable to reach game API - these members will be checked on next scheduled run\n\n"
-                        f"Members NOT affected - no data was changed."
-                    )
                 await self.send_embed(
                     channel=channel,
-                    title=f"{theme.warnIcon} **{alliance_name}** Connection Issues",
-                    description=description,
+                    title=f"⚠️ **{alliance_name}** Connection Issues",
+                    description=safe_list(connection_errors),
                     color=discord.Color.orange(),
-                    footer=f"{theme.chartIcon} {len(connection_errors)} connection issue(s) - Members NOT affected"
+                    footer=f"📊 {len(connection_errors)} connection issue(s) - Members NOT affected"
                 )
 
             embed.color = discord.Color.green()
             embed.set_field_at(
                 0,
-                name=f"{theme.chartIcon} Final Status",
-                value=f"{theme.verifiedIcon} Control completed with changes\n{theme.alarmClockIcon} {end_time.strftime('%Y-%m-%d %H:%M:%S')}",
+                name="📊 Final Status",
+                value=f"✅ Control completed with changes\n⏰ {end_time.strftime('%Y-%m-%d %H:%M:%S')}",
                 inline=False
             )
             embed.add_field(
-                name=f"{theme.hourglassIcon} Duration",
+                name="⏱️ Duration",
                 value=str(duration),
                 inline=True
             )
             # Build the value string without nested f-strings for Python 3.9+ compatibility
             total_changes = len(furnace_changes) + len(nickname_changes) + len(kid_changes)
-            changes_text = f"{theme.refreshIcon} {total_changes} changes detected"
+            changes_text = f"🔄 {total_changes} changes detected"
 
             # Add removed count if any
             removed_count = sum(1 for item in check_fail_list if '- Removed' in item)
             if removed_count > 0:
-                changes_text += f"\n{theme.trashIcon} {removed_count} invalid IDs removed"
+                changes_text += f"\n🗑️ {removed_count} invalid IDs removed"
 
             # Add check failures count if any
             check_failure_count = sum(1 for item in check_fail_list if '- Removed' not in item)
             if check_failure_count > 0:
-                changes_text += f"\n{theme.deniedIcon} {check_failure_count} check failures"
+                changes_text += f"\n❌ {check_failure_count} check failures"
 
             # Add connection issues count if any (informational only)
             if connection_errors:
-                changes_text += f"\n{theme.warnIcon} {len(connection_errors)} connection issue(s)"
+                changes_text += f"\n⚠️ {len(connection_errors)} connection issue(s)"
 
             embed.add_field(
-                name=f"{theme.chartIcon} Total Changes",
+                name="📈 Total Changes",
                 value=changes_text,
                 inline=True
             )
@@ -615,12 +597,12 @@ class Control(commands.Cog):
             embed.color = discord.Color.green()
             embed.set_field_at(
                 0,
-                name=f"{theme.chartIcon} Final Status",
-                value=f"{theme.verifiedIcon} Control completed successfully\n{theme.alarmClockIcon} {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n{theme.listIcon} No changes detected",
+                name="📊 Final Status",
+                value=f"✅ Control completed successfully\n⏰ {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n📝 No changes detected",
                 inline=False
             )
             embed.add_field(
-                name=f"{theme.hourglassIcon} Duration",
+                name="⏱️ Duration",
                 value=str(duration),
                 inline=True
             )
@@ -640,46 +622,46 @@ class Control(commands.Cog):
                     if batch_info['current'] == batch_info['total']:
                         # Final completion message for all alliances
                         status_embed = discord.Embed(
-                            title=f"{theme.verifiedIcon} Alliance Control Complete",
+                            title="✅ Alliance Control Complete",
                             description=(
-                                f"{theme.upperDivider}\n"
-                                f"{theme.chartIcon} **Type:** All Alliances ({batch_info['total']} total)\n"
-                                f"{theme.allianceIcon} **Alliances:** {batch_info['total']} processed\n"
-                                f"{theme.verifiedIcon} **Status:** Completed\n"
-                                f"{theme.chartIcon} **Latest Alliance:** {alliance_name}\n"
-                                f"{theme.timeIcon} **Duration:** {duration.total_seconds():.1f} seconds\n"
-                                f"{theme.lowerDivider}"
+                                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"📊 **Type:** All Alliances ({batch_info['total']} total)\n"
+                                f"🏰 **Alliances:** {batch_info['total']} processed\n"
+                                f"✅ **Status:** Completed\n"
+                                f"📈 **Latest Alliance:** {alliance_name}\n"
+                                f"⏱️ **Duration:** {duration.total_seconds():.1f} seconds\n"
+                                "━━━━━━━━━━━━━━━━━━━━━━"
                             ),
-                            color=theme.emColor3
+                            color=discord.Color.green()
                         )
                     else:
                         # Still processing other alliances - just update progress
                         status_embed = discord.Embed(
-                            title=f"{theme.refreshIcon} Alliance Control Operation",
+                            title="🔄 Alliance Control Operation",
                             description=(
-                                f"{theme.upperDivider}\n"
-                                f"{theme.chartIcon} **Type:** All Alliances ({batch_info['total']} total)\n"
-                                f"{theme.allianceIcon} **Completed:** {alliance_name}\n"
-                                f"{theme.pinIcon} **Progress:** {batch_info['current']}/{batch_info['total']} alliances\n"
-                                f"{theme.chartIcon} **Changes in {alliance_name}:** {'Yes' if changes_detected else 'No'}\n"
-                                f"{theme.lowerDivider}"
+                                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"📊 **Type:** All Alliances ({batch_info['total']} total)\n"
+                                f"🏰 **Completed:** {alliance_name}\n"
+                                f"📍 **Progress:** {batch_info['current']}/{batch_info['total']} alliances\n"
+                                f"📈 **Changes in {alliance_name}:** {'Yes' if changes_detected else 'No'}\n"
+                                "━━━━━━━━━━━━━━━━━━━━━━"
                             ),
-                            color=theme.emColor1
+                            color=discord.Color.blue()
                         )
                 else:
                     # Single alliance completion
                     status_embed = discord.Embed(
-                        title=f"{theme.verifiedIcon} Alliance Control Complete",
+                        title="✅ Alliance Control Complete",
                         description=(
-                            f"{theme.upperDivider}\n"
-                            f"{theme.chartIcon} **Type:** Single Alliance\n"
-                            f"{theme.allianceIcon} **Alliance:** {alliance_name}\n"
-                            f"{theme.verifiedIcon} **Status:** Completed\n"
-                            f"{theme.chartIcon} **Changes Detected:** {'Yes' if changes_detected else 'No'}\n"
-                            f"{theme.timeIcon} **Duration:** {duration.total_seconds():.1f} seconds\n"
-                            f"{theme.lowerDivider}"
+                            "━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"📊 **Type:** Single Alliance\n"
+                            f"🏰 **Alliance:** {alliance_name}\n"
+                            f"✅ **Status:** Completed\n"
+                            f"📈 **Changes Detected:** {'Yes' if changes_detected else 'No'}\n"
+                            f"⏱️ **Duration:** {duration.total_seconds():.1f} seconds\n"
+                            "━━━━━━━━━━━━━━━━━━━━━━"
                         ),
-                        color=theme.emColor3
+                        color=discord.Color.green()
                     )
                 
                 await interaction_message.edit(embed=status_embed)
@@ -719,91 +701,47 @@ class Control(commands.Cog):
             embed.set_footer(text=footer)
             await channel.send(embed=embed)
 
-    def _calculate_initial_delay(self, start_time: str, interval: int) -> int:
-        """Calculate seconds until next scheduled run based on start_time.
-
-        If start_time is set (HH:MM format, UTC), calculate delay until that time.
-        If the time has passed today, calculate when the next interval-aligned run would be.
-        If start_time is None, return 0 (start immediately with interval delay).
-        """
-        if not start_time:
-            return interval * 60  # No start_time, use interval as initial delay
-
+    async def schedule_alliance_check(self, channel, alliance_id, current_interval):
         try:
-            from datetime import timezone
-            now = datetime.now(timezone.utc)
-            hour, minute = map(int, start_time.split(':'))
-
-            # Create target time for today
-            target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-
-            # If target time has passed, find the next interval-aligned occurrence
-            if target <= now:
-                # Calculate how many intervals have passed since target
-                seconds_since_target = (now - target).total_seconds()
-                interval_seconds = interval * 60
-                intervals_passed = int(seconds_since_target / interval_seconds) + 1
-                target = target.replace(day=target.day) + __import__('datetime').timedelta(seconds=intervals_passed * interval_seconds)
-
-            delay_seconds = (target - now).total_seconds()
-            return max(0, int(delay_seconds))
-        except (ValueError, AttributeError) as e:
-            print(f"[CONTROL] Invalid start_time format '{start_time}': {e}")
-            return interval * 60  # Fall back to interval delay
-
-    async def schedule_alliance_check(self, alliance_id):
-        """Schedule periodic alliance checks. Settings are fetched fresh from DB."""
-        try:
-            # Get initial settings
-            cached = self.current_task_settings.get(alliance_id)
-            if not cached:
-                print(f"[CONTROL] No cached settings for alliance {alliance_id}, stopping")
-                return
-
-            channel_id, interval, start_time = cached
-
-            # Calculate initial delay based on start_time
-            initial_delay = self._calculate_initial_delay(start_time, interval)
-            if initial_delay > 0:
-                await asyncio.sleep(initial_delay)
-
+            await asyncio.sleep(current_interval * 60)
+            
             while self.is_running.get(alliance_id, False):
                 try:
-                    # Fetch fresh settings from cache (updated by monitor loop)
-                    cached = self.current_task_settings.get(alliance_id)
-                    if not cached:
-                        print(f"[CONTROL] Alliance {alliance_id} removed from settings, stopping")
-                        break
+                    async with self.db_lock:
+                        self.cursor_alliance.execute("""
+                            SELECT interval 
+                            FROM alliancesettings 
+                            WHERE alliance_id = ?
+                        """, (alliance_id,))
+                        result = self.cursor_alliance.fetchone()
+                        
+                        if not result or result[0] == 0:
+                            print(f"[CONTROL] Stopping checks for alliance {alliance_id} - interval disabled")
+                            self.is_running[alliance_id] = False
+                            break
+                        
+                        new_interval = result[0]
+                        if new_interval != current_interval:
+                            print(f"[CONTROL] Interval changed for alliance {alliance_id}: {current_interval} -> {new_interval}")
+                            self.is_running[alliance_id] = False
+                            self.alliance_tasks[alliance_id] = asyncio.create_task(
+                                self.schedule_alliance_check(channel, alliance_id, new_interval)
+                            )
+                            break
 
-                    channel_id, interval, start_time = cached
-
-                    # Get the channel fresh each time
-                    channel = self.bot.get_channel(channel_id)
-                    if channel is None:
-                        print(f"[CONTROL] Channel {channel_id} not found for alliance {alliance_id}")
-                        await asyncio.sleep(60)
-                        continue
-
-                    # Queue the control check
                     await self.login_handler.queue_operation({
                         'type': 'alliance_control',
                         'callback': lambda ch=channel, aid=alliance_id: self.check_agslist(ch, aid, interaction_message=None),
                         'description': f'Scheduled control check for alliance {alliance_id}',
                         'alliance_id': alliance_id
                     })
-
-                    # Sleep for the interval
-                    await asyncio.sleep(interval * 60)
-
-                except asyncio.CancelledError:
-                    self.logger.info(f"Task cancelled for alliance {alliance_id}")
-                    raise
+                    
+                    await asyncio.sleep(current_interval * 60)
+                    
                 except Exception as e:
                     print(f"[ERROR] Error in schedule_alliance_check for alliance {alliance_id}: {e}")
                     await asyncio.sleep(60)
-
-        except asyncio.CancelledError:
-            self.logger.info(f"Schedule task cancelled for alliance {alliance_id}")
+                    
         except Exception as e:
             print(f"[ERROR] Fatal error in schedule_alliance_check for alliance {alliance_id}: {e}")
             traceback.print_exc()
@@ -812,10 +750,10 @@ class Control(commands.Cog):
     async def on_ready(self):
         if not self.monitor_started:
             print("[CONTROL] Starting monitor...")
-
+            
             # Check API availability
             await self.login_handler.check_apis_availability()
-            print(f"[CONTROL] {self.login_handler.get_mode_text(for_console=True)}")
+            print(f"[CONTROL] {self.login_handler.get_mode_text()}")
             
             # Start the centralized queue processor
             await self.login_handler.start_queue_processor()
@@ -832,40 +770,35 @@ class Control(commands.Cog):
                     task.cancel()
             self.alliance_tasks.clear()
             self.is_running.clear()
-            self.current_task_settings.clear()
 
             async with self.db_lock:
                 self.cursor_alliance.execute("""
-                    SELECT s.alliance_id, s.channel_id, s.interval, s.start_time, a.name
-                    FROM alliancesettings s
-                    JOIN alliance_list a ON s.alliance_id = a.alliance_id
-                    WHERE s.interval > 0
+                    SELECT alliance_id, channel_id, interval 
+                    FROM alliancesettings
+                    WHERE interval > 0
                 """)
                 alliances = self.cursor_alliance.fetchall()
 
                 if not alliances:
-                    self.logger.info("No alliances with intervals found")
+                    print("[CONTROL] No alliances with intervals found")
                     return
 
-                scheduled_alliances = []
-                for alliance_id, channel_id, interval, start_time, alliance_name in alliances:
+                print(f"[CONTROL] Found {len(alliances)} alliances with intervals")
+                
+                for alliance_id, channel_id, interval in alliances:
                     channel = self.bot.get_channel(channel_id)
                     if channel is not None:
-                        scheduled_alliances.append(alliance_name)
+                        print(f"[CONTROL] Scheduling alliance {alliance_id} with interval {interval} minutes")
+                        
+                        # Don't queue an immediate check - let the schedule handle it
                         self.is_running[alliance_id] = True
-                        self.current_task_settings[alliance_id] = (channel_id, interval, start_time)
                         self.alliance_tasks[alliance_id] = asyncio.create_task(
-                            self.schedule_alliance_check(alliance_id)
+                            self.schedule_alliance_check(channel, alliance_id, interval)
                         )
-
+                        
                         await asyncio.sleep(0.5)  # Small delay to prevent overwhelming the system
                     else:
-                        self.logger.warning(f"Channel not found for alliance {alliance_id}")
-
-                if scheduled_alliances:
-                    msg = f"Scheduled controls for {len(scheduled_alliances)} alliance(s): {', '.join(scheduled_alliances)}"
-                    print(f"[CONTROL] {msg}")
-                    self.logger.info(msg)
+                        print(f"[CONTROL] Channel not found for alliance {alliance_id}")
 
         except Exception as e:
             print(f"[ERROR] Error in start_alliance_checks: {e}")
@@ -883,66 +816,36 @@ class Control(commands.Cog):
     async def monitor_alliance_changes(self):
         try:
             async with self.db_lock:
-                self.cursor_alliance.execute("SELECT alliance_id, channel_id, interval, start_time FROM alliancesettings")
+                self.cursor_alliance.execute("SELECT alliance_id, channel_id, interval FROM alliancesettings")
                 current_settings = {
-                    alliance_id: (channel_id, interval, start_time)
-                    for alliance_id, channel_id, interval, start_time in self.cursor_alliance.fetchall()
+                    alliance_id: (channel_id, interval)
+                    for alliance_id, channel_id, interval in self.cursor_alliance.fetchall()
                 }
 
-                for alliance_id, (channel_id, interval, start_time) in current_settings.items():
+                for alliance_id, (channel_id, interval) in current_settings.items():
                     task_exists = alliance_id in self.alliance_tasks
-                    cached_settings = self.current_task_settings.get(alliance_id)
-
-                    # If interval is 0, stop the task
+                    
                     if interval == 0 and task_exists:
-                        print(f"[CONTROL] Stopping alliance {alliance_id} - interval set to 0")
                         self.is_running[alliance_id] = False
                         if not self.alliance_tasks[alliance_id].done():
                             self.alliance_tasks[alliance_id].cancel()
                         del self.alliance_tasks[alliance_id]
-                        if alliance_id in self.current_task_settings:
-                            del self.current_task_settings[alliance_id]
                         continue
 
-                    # Check if settings changed (channel, interval, or start_time)
-                    settings_changed = cached_settings and cached_settings != (channel_id, interval, start_time)
-                    if settings_changed and task_exists:
-                        old_channel, old_interval, old_start = cached_settings
-                        print(f"[CONTROL] Settings changed for alliance {alliance_id}:")
-                        if old_channel != channel_id:
-                            print(f"  Channel: {old_channel} -> {channel_id}")
-                        if old_interval != interval:
-                            print(f"  Interval: {old_interval} -> {interval}")
-                        if old_start != start_time:
-                            print(f"  Start time: {old_start} -> {start_time}")
-                        # Cancel existing task to restart with new settings
-                        self.is_running[alliance_id] = False
-                        if not self.alliance_tasks[alliance_id].done():
-                            self.alliance_tasks[alliance_id].cancel()
-                        del self.alliance_tasks[alliance_id]
-                        task_exists = False
-
-                    # Start new task if needed
                     if interval > 0 and (not task_exists or self.alliance_tasks[alliance_id].done()):
                         channel = self.bot.get_channel(channel_id)
                         if channel is not None:
-                            self.logger.info(f"Starting task for alliance {alliance_id} (interval: {interval}min, start_time: {start_time})")
                             self.is_running[alliance_id] = True
-                            self.current_task_settings[alliance_id] = (channel_id, interval, start_time)
                             self.alliance_tasks[alliance_id] = asyncio.create_task(
-                                self.schedule_alliance_check(alliance_id)
+                                self.schedule_alliance_check(channel, alliance_id, interval)
                             )
 
-                # Clean up tasks for removed alliances
                 for alliance_id in list(self.alliance_tasks.keys()):
                     if alliance_id not in current_settings:
-                        print(f"[CONTROL] Removing task for deleted alliance {alliance_id}")
                         self.is_running[alliance_id] = False
                         if not self.alliance_tasks[alliance_id].done():
                             self.alliance_tasks[alliance_id].cancel()
                         del self.alliance_tasks[alliance_id]
-                        if alliance_id in self.current_task_settings:
-                            del self.current_task_settings[alliance_id]
 
         except Exception as e:
             print(f"[ERROR] Error in monitor_alliance_changes: {e}")

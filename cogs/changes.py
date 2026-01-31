@@ -3,8 +3,6 @@ from discord.ext import commands
 import sqlite3
 from datetime import datetime
 from .alliance_member_operations import AllianceSelectView
-from .permission_handler import PermissionManager
-from .pimp_my_bot import theme
 
 class Changes(commands.Cog):
     def __init__(self, bot):
@@ -50,17 +48,17 @@ class Changes(commands.Cog):
     async def show_alliance_history_menu(self, interaction: discord.Interaction):
         try:
             embed = discord.Embed(
-                title=f"{theme.listIcon} Alliance History Menu",
+                title="📜 Alliance History Menu",
                 description=(
-                    f"**Available Operations**\n"
-                    f"{theme.upperDivider}\n"
-                    f"{theme.stoveIcon} **Furnace Changes**\n"
-                    f"└ View furnace level changes\n\n"
-                    f"{theme.editListIcon} **Nickname Changes**\n"
-                    f"└ View nickname history\n"
-                    f"{theme.lowerDivider}"
+                    "**Available Operations**\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "🔥 **Furnace Changes**\n"
+                    "└ View furnace level changes\n\n"
+                    "📝 **Nickname Changes**\n"
+                    "└ View nickname history\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━"
                 ),
-                color=theme.emColor1
+                color=discord.Color.blue()
             )
 
             view = HistoryView(self)
@@ -69,6 +67,85 @@ class Changes(commands.Cog):
         except Exception as e:
             if not any(error_code in str(e) for error_code in ["10062", "40060"]):
                 print(f"Show alliance history menu error: {e}")
+
+    async def get_admin_info(self, user_id: int):
+        try:
+            with sqlite3.connect('db/settings.sqlite') as settings_db:
+                cursor = settings_db.cursor()
+                cursor.execute("""
+                    SELECT id, is_initial
+                    FROM admin
+                    WHERE id = ?
+                """, (user_id,))
+                return cursor.fetchone()
+        except Exception as e:
+            print(f"Error in get_admin_info: {e}")
+            return None
+
+    async def get_admin_alliances(self, user_id: int, guild_id: int):
+        try:
+            with sqlite3.connect('db/settings.sqlite') as settings_db:
+                cursor = settings_db.cursor()
+                cursor.execute("SELECT is_initial FROM admin WHERE id = ?", (user_id,))
+                admin_result = cursor.fetchone()
+                
+                if not admin_result:
+                    print(f"User {user_id} is not an admin")
+                    return [], [], False
+                    
+                is_initial = admin_result[0]
+                
+            if is_initial == 1:
+                with sqlite3.connect('db/alliance.sqlite') as alliance_db:
+                    cursor = alliance_db.cursor()
+                    cursor.execute("SELECT alliance_id, name FROM alliance_list ORDER BY name")
+                    alliances = cursor.fetchall()
+                    return alliances, [], True
+            
+            server_alliances = []
+            special_alliances = []
+            
+            with sqlite3.connect('db/alliance.sqlite') as alliance_db:
+                cursor = alliance_db.cursor()
+                cursor.execute("""
+                    SELECT DISTINCT alliance_id, name 
+                    FROM alliance_list 
+                    WHERE discord_server_id = ?
+                    ORDER BY name
+                """, (guild_id,))
+                server_alliances = cursor.fetchall()
+            
+            with sqlite3.connect('db/settings.sqlite') as settings_db:
+                cursor = settings_db.cursor()
+                cursor.execute("""
+                    SELECT alliances_id 
+                    FROM adminserver 
+                    WHERE admin = ?
+                """, (user_id,))
+                special_alliance_ids = cursor.fetchall()
+                
+            if special_alliance_ids:
+                with sqlite3.connect('db/alliance.sqlite') as alliance_db:
+                    cursor = alliance_db.cursor()
+                    placeholders = ','.join('?' * len(special_alliance_ids))
+                    cursor.execute(f"""
+                        SELECT DISTINCT alliance_id, name
+                        FROM alliance_list
+                        WHERE alliance_id IN ({placeholders})
+                        ORDER BY name
+                    """, [aid[0] for aid in special_alliance_ids])
+                    special_alliances = cursor.fetchall()
+            
+            all_alliances = list({(aid, name) for aid, name in (server_alliances + special_alliances)})
+            
+            if not all_alliances and not special_alliances:
+                return [], [], False
+            
+            return all_alliances, special_alliances, False
+                
+        except Exception as e:
+            print(f"Error in get_admin_alliances: {e}")
+            return [], [], False
 
     async def show_furnace_history(self, interaction: discord.Interaction, fid: int):
         try:
@@ -96,14 +173,14 @@ class Changes(commands.Cog):
                 current_level = user_info[1] if user_info else 0
 
             embed = discord.Embed(
-                title=f"{theme.levelIcon} Furnace Level History",
+                title=f"🔥 Furnace Level History",
                 description=(
                     f"**Player:** `{nickname}`\n"
                     f"**ID:** `{fid}`\n"
                     f"**Current Level:** `{self.level_mapping.get(current_level, str(current_level))}`\n"
-                    f"{theme.upperDivider}\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
                 ),
-                color=theme.emColor1
+                color=discord.Color.blue()
             )
 
             for old_level, new_level, change_date in changes:
@@ -111,7 +188,7 @@ class Changes(commands.Cog):
                 new_level_str = self.level_mapping.get(int(new_level), str(new_level))
                 embed.add_field(
                     name=f"Level Change at {change_date}",
-                    value=f"{theme.stoveOldIcon} `{old_level_str}` ➜ {theme.stoveIcon} `{new_level_str}`",
+                    value=f"```{old_level_str} ➜ {new_level_str}```",
                     inline=False
                 )
 
@@ -120,7 +197,7 @@ class Changes(commands.Cog):
         except Exception as e:
             print(f"Error in show_furnace_history: {e}")
             await interaction.followup.send(
-                f"{theme.deniedIcon} An error occurred while displaying the furnace history.",
+                "❌ An error occurred while displaying the furnace history.",
                 ephemeral=True
             )
 
@@ -150,20 +227,20 @@ class Changes(commands.Cog):
                 current_level = user_info[1] if user_info else 0
 
             embed = discord.Embed(
-                title=f"{theme.editListIcon} Nickname History",
+                title=f"📝 Nickname History",
                 description=(
                     f"**Player:** `{nickname}`\n"
                     f"**ID:** `{fid}`\n"
                     f"**Current Level:** `{self.level_mapping.get(current_level, str(current_level))}`\n"
-                    f"{theme.upperDivider}\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
                 ),
-                color=theme.emColor1
+                color=discord.Color.blue()
             )
 
             for old_name, new_name, change_date in changes:
                 embed.add_field(
                     name=f"Nickname Change at {change_date}",
-                    value=f"{theme.avatarOldIcon} `{old_name}` ➜ {theme.avatarIcon} `{new_name}`",
+                    value=f"```{old_name} ➜ {new_name}```",
                     inline=False
                 )
 
@@ -172,7 +249,7 @@ class Changes(commands.Cog):
         except Exception as e:
             print(f"Error in show_nickname_history: {e}")
             await interaction.followup.send(
-                f"{theme.deniedIcon} An error occurred while displaying the nickname history.",
+                "❌ An error occurred while displaying the nickname history.",
                 ephemeral=True
             )
 
@@ -195,21 +272,21 @@ class Changes(commands.Cog):
 
             if not members:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} No members found in this alliance.",
+                    "❌ No members found in this alliance.",
                     ephemeral=True
                 )
                 return
 
             embed = discord.Embed(
-                title=f"{theme.editListIcon} {alliance_name} - Member List",
+                title=f"📝 {alliance_name} - Member List",
                 description=(
-                    f"Select a member to view nickname history:\n"
-                    f"{theme.upperDivider}\n"
+                    "Select a member to view nickname history:\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"Total Members: {len(members)}\n"
                     f"Current Page: 1/{(len(members) + 24) // 25}\n"
-                    f"{theme.lowerDivider}"
+                    "━━━━━━━━━━━━━━━━━━━━━━"
                 ),
-                color=theme.emColor1
+                color=discord.Color.blue()
             )
 
             view = MemberListViewNickname(self, members, alliance_name)
@@ -222,7 +299,7 @@ class Changes(commands.Cog):
         except Exception as e:
             print(f"Error in show_member_list_nickname: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while displaying the member list.",
+                "❌ An error occurred while displaying the member list.",
                 ephemeral=True
             )
 
@@ -267,7 +344,7 @@ class Changes(commands.Cog):
         except Exception as e:
             print(f"Error in show_recent_changes: {e}")
             await interaction.followup.send(
-                f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                "❌ An error occurred while showing recent changes.",
                 ephemeral=True
             )
 
@@ -312,7 +389,7 @@ class Changes(commands.Cog):
         except Exception as e:
             print(f"Error in show_recent_nickname_changes: {e}")
             await interaction.followup.send(
-                f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                "❌ An error occurred while showing recent changes.",
                 ephemeral=True
             )
 
@@ -326,24 +403,34 @@ class HistoryView(discord.ui.View):
 
     @discord.ui.button(
         label="Furnace Changes",
-        emoji=f"{theme.stoveIcon}",
+        emoji="🔥",
         style=discord.ButtonStyle.primary,
         custom_id="furnace_changes",
         row=0
     )
     async def furnace_changes_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
-            alliances, is_global = PermissionManager.get_admin_alliances(
-                interaction.user.id,
-                interaction.guild_id
-            )
-
-            if not alliances:
+            admin_info = await self.cog.get_admin_info(interaction.user.id)
+            if not admin_info:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} No alliances found for your permissions.",
+                    "❌ You don't have permission to perform this action.",
                     ephemeral=True
                 )
                 return
+
+            available_alliances = await self.cog.get_admin_alliances(interaction.user.id, interaction.guild_id)
+            if not available_alliances[0]:
+                await interaction.response.send_message(
+                    embed=discord.Embed(
+                        title="❌ No Available Alliance",
+                        description="No alliance found that you have access to.",
+                        color=discord.Color.red()
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            alliances, special_alliances, is_global = available_alliances
 
             alliances_with_counts = []
             for alliance_id, name in alliances:
@@ -353,18 +440,27 @@ class HistoryView(discord.ui.View):
                     member_count = cursor.fetchone()[0]
                     alliances_with_counts.append((alliance_id, name, member_count))
 
+            special_alliance_text = ""
+            if special_alliances:
+                special_alliance_text = "\n\n**Special Access Alliances**\n"
+                special_alliance_text += "━━━━━━━━━━━━━━━━━━━━━━\n"
+                for _, name in special_alliances:
+                    special_alliance_text += f"🔸 {name}\n"
+                special_alliance_text += "━━━━━━━━━━━━━━━━━━━━━━"
+
             select_embed = discord.Embed(
-                title=f"{theme.stoveIcon} Furnace Changes",
+                title="🔥 Furnace Changes",
                 description=(
-                    f"Select an alliance to view furnace changes:\n\n"
-                    f"**Permission Details**\n"
-                    f"{theme.upperDivider}\n"
-                    f"{theme.userIcon} **Access Level:** `{'Global Admin' if is_global else 'Alliance Admin'}`\n"
-                    f"{theme.searchIcon} **Access Type:** `{'All Alliances' if is_global else 'Assigned Alliances'}`\n"
-                    f"{theme.chartIcon} **Available Alliances:** `{len(alliances)}`\n"
-                    f"{theme.lowerDivider}"
+                    "Select an alliance to view furnace changes:\n\n"
+                    "**Permission Details**\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"👤 **Access Level:** `{'Global Admin' if admin_info[1] == 1 else 'Server Admin'}`\n"
+                    f"🔍 **Access Type:** `{'All Alliances' if admin_info[1] == 1 else 'Server + Special Access'}`\n"
+                    f"📊 **Available Alliances:** `{len(alliances)}`\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━"
+                    f"{special_alliance_text}"
                 ),
-                color=theme.emColor1
+                color=discord.Color.blue()
             )
 
             view = AllianceSelectView(alliances_with_counts, self.cog, page=0, context="furnace_history")
@@ -377,12 +473,12 @@ class HistoryView(discord.ui.View):
                     print(f"Error in alliance selection: {e}")
                     if not select_interaction.response.is_done():
                         await select_interaction.response.send_message(
-                            f"{theme.deniedIcon} An error occurred while processing your selection.",
+                            "❌ An error occurred while processing your selection.",
                             ephemeral=True
                         )
                     else:
                         await select_interaction.followup.send(
-                            f"{theme.deniedIcon} An error occurred while processing your selection.",
+                            "❌ An error occurred while processing your selection.",
                             ephemeral=True
                         )
 
@@ -397,7 +493,7 @@ class HistoryView(discord.ui.View):
         except Exception as e:
             print(f"Error in furnace_changes_button: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while processing the request.",
+                "❌ An error occurred while processing the request.",
                 ephemeral=True
             )
 
@@ -415,7 +511,7 @@ class HistoryView(discord.ui.View):
 
             if not members:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} No members found in this alliance.",
+                    "❌ No members found in this alliance.",
                     ephemeral=True
                 )
                 return
@@ -428,15 +524,15 @@ class HistoryView(discord.ui.View):
             view = MemberListView(self.cog, members, alliance_name)
             
             embed = discord.Embed(
-                title=f"{theme.levelIcon} {alliance_name} - Member List",
+                title=f"🔥 {alliance_name} - Member List",
                 description=(
-                    f"Select a member to view furnace history:\n"
-                    f"{theme.upperDivider}\n"
+                    "Select a member to view furnace history:\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"Total Members: {len(members)}\n"
                     f"Current Page: 1/{view.total_pages}\n"
-                    f"{theme.lowerDivider}"
+                    "━━━━━━━━━━━━━━━━━━━━━━"
                 ),
-                color=theme.emColor1
+                color=discord.Color.blue()
             )
 
             await interaction.response.edit_message(embed=embed, view=view)
@@ -445,35 +541,45 @@ class HistoryView(discord.ui.View):
             print(f"Error in member_callback: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred while showing member list.",
+                    "❌ An error occurred while showing member list.",
                     ephemeral=True
                 )
             else:
                 await interaction.followup.send(
-                    f"{theme.deniedIcon} An error occurred while showing member list.",
+                    "❌ An error occurred while showing member list.",
                     ephemeral=True
                 )
 
     @discord.ui.button(
         label="Nickname Changes",
-        emoji=f"{theme.editListIcon}",
+        emoji="📝",
         style=discord.ButtonStyle.primary,
         custom_id="nickname_changes",
         row=0
     )
     async def nickname_changes_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
-            alliances, is_global = PermissionManager.get_admin_alliances(
-                interaction.user.id,
-                interaction.guild_id
-            )
-
-            if not alliances:
+            admin_info = await self.cog.get_admin_info(interaction.user.id)
+            if not admin_info:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} No alliances found for your permissions.",
+                    "❌ You don't have permission to perform this action.",
                     ephemeral=True
                 )
                 return
+
+            available_alliances = await self.cog.get_admin_alliances(interaction.user.id, interaction.guild_id)
+            if not available_alliances[0]:
+                await interaction.response.send_message(
+                    embed=discord.Embed(
+                        title="❌ No Available Alliance",
+                        description="No alliance found that you have access to.",
+                        color=discord.Color.red()
+                    ),
+                    ephemeral=True
+                )
+                return
+
+            alliances, special_alliances, is_global = available_alliances
 
             alliances_with_counts = []
             for alliance_id, name in alliances:
@@ -483,18 +589,27 @@ class HistoryView(discord.ui.View):
                     member_count = cursor.fetchone()[0]
                     alliances_with_counts.append((alliance_id, name, member_count))
 
+            special_alliance_text = ""
+            if special_alliances:
+                special_alliance_text = "\n\n**Special Access Alliances**\n"
+                special_alliance_text += "━━━━━━━━━━━━━━━━━━━━━━\n"
+                for _, name in special_alliances:
+                    special_alliance_text += f"🔸 {name}\n"
+                special_alliance_text += "━━━━━━━━━━━━━━━━━━━━━━"
+
             select_embed = discord.Embed(
-                title=f"{theme.editListIcon} Alliance Selection - Nickname Changes",
+                title="📝 Alliance Selection - Nickname Changes",
                 description=(
-                    f"Select an alliance to view nickname changes:\n\n"
-                    f"**Permission Details**\n"
-                    f"{theme.upperDivider}\n"
-                    f"{theme.userIcon} **Access Level:** `{'Global Admin' if is_global else 'Alliance Admin'}`\n"
-                    f"{theme.searchIcon} **Access Type:** `{'All Alliances' if is_global else 'Assigned Alliances'}`\n"
-                    f"{theme.chartIcon} **Available Alliances:** `{len(alliances)}`\n"
-                    f"{theme.lowerDivider}"
+                    "Select an alliance to view nickname changes:\n\n"
+                    "**Permission Details**\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"👤 **Access Level:** `{'Global Admin' if admin_info[1] == 1 else 'Server Admin'}`\n"
+                    f"🔍 **Access Type:** `{'All Alliances' if admin_info[1] == 1 else 'Server + Special Access'}`\n"
+                    f"📊 **Available Alliances:** `{len(alliances)}`\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━"
+                    f"{special_alliance_text}"
                 ),
-                color=theme.emColor1
+                color=discord.Color.blue()
             )
 
             view = AllianceSelectView(alliances_with_counts, self.cog, page=0, context="nickname_history")
@@ -507,12 +622,12 @@ class HistoryView(discord.ui.View):
                     print(f"Error in alliance selection: {e}")
                     if not select_interaction.response.is_done():
                         await select_interaction.response.send_message(
-                            f"{theme.deniedIcon} An error occurred while processing your selection.",
+                            "❌ An error occurred while processing your selection.",
                             ephemeral=True
                         )
                     else:
                         await select_interaction.followup.send(
-                            f"{theme.deniedIcon} An error occurred while processing your selection.",
+                            "❌ An error occurred while processing your selection.",
                             ephemeral=True
                         )
 
@@ -527,13 +642,13 @@ class HistoryView(discord.ui.View):
         except Exception as e:
             print(f"Error in nickname_changes_button: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while processing the request.",
+                "❌ An error occurred while processing the request.",
                 ephemeral=True
             )
 
     @discord.ui.button(
         label="Main Menu",
-        emoji=f"{theme.homeIcon}",
+        emoji="🏠",
         style=discord.ButtonStyle.secondary,
         custom_id="main_menu",
         row=1
@@ -548,7 +663,7 @@ class HistoryView(discord.ui.View):
                 await alliance_cog.show_main_menu(interaction)
             else:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred while returning to the main menu.",
+                    "❌ An error occurred while returning to the main menu.",
                     ephemeral=True
                 )
         except Exception as e:
@@ -573,12 +688,12 @@ class HistoryView(discord.ui.View):
             print(f"Error in last_hour_callback: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
             else:
                 await interaction.followup.send(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
 
@@ -591,12 +706,12 @@ class HistoryView(discord.ui.View):
             print(f"Error in last_day_callback: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
             else:
                 await interaction.followup.send(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
 
@@ -607,7 +722,7 @@ class HistoryView(discord.ui.View):
         except Exception as e:
             print(f"Error in custom_time_callback: {e}")
             await interaction.followup.send(
-                f"{theme.deniedIcon} An error occurred while showing the time input.",
+                "❌ An error occurred while showing the time input.",
                 ephemeral=True
             )
 
@@ -649,12 +764,12 @@ class MemberListView(discord.ui.View):
                 print(f"Error in member_callback: {e}")
                 if not interaction.response.is_done():
                     await interaction.response.send_message(
-                        f"{theme.deniedIcon} An error occurred while showing furnace history.",
+                        "❌ An error occurred while showing furnace history.",
                         ephemeral=True
                     )
                 else:
                     await interaction.followup.send(
-                        f"{theme.deniedIcon} An error occurred while showing furnace history.",
+                        "❌ An error occurred while showing furnace history.",
                         ephemeral=True
                     )
 
@@ -663,7 +778,7 @@ class MemberListView(discord.ui.View):
 
         last_hour_button = discord.ui.Button(
             label="Last Hour Changes",
-            emoji=f"{theme.timeIcon}",
+            emoji="⏰",
             style=discord.ButtonStyle.primary,
             custom_id="last_hour",
             row=1
@@ -673,7 +788,7 @@ class MemberListView(discord.ui.View):
 
         last_day_button = discord.ui.Button(
             label="Last 24h Changes",
-            emoji=f"{theme.calendarIcon}",
+            emoji="📅",
             style=discord.ButtonStyle.primary,
             custom_id="last_day",
             row=1
@@ -683,7 +798,7 @@ class MemberListView(discord.ui.View):
 
         custom_time_button = discord.ui.Button(
             label="Custom Time",
-            emoji=f"{theme.settingsIcon}",
+            emoji="⚙️",
             style=discord.ButtonStyle.primary,
             custom_id="custom_time",
             row=1
@@ -694,7 +809,7 @@ class MemberListView(discord.ui.View):
         if self.total_pages > 1:
             previous_button = discord.ui.Button(
                 label="Previous",
-                emoji=f"{theme.backIcon}",
+                emoji="⬅️",
                 style=discord.ButtonStyle.secondary,
                 custom_id="previous",
                 disabled=self.current_page == 0,
@@ -705,7 +820,7 @@ class MemberListView(discord.ui.View):
 
             next_button = discord.ui.Button(
                 label="Next",
-                emoji=f"{theme.forwardIcon}",
+                emoji="➡️",
                 style=discord.ButtonStyle.secondary,
                 custom_id="next",
                 disabled=self.current_page == self.total_pages - 1,
@@ -716,7 +831,7 @@ class MemberListView(discord.ui.View):
 
         search_button = discord.ui.Button(
             label="Search by ID",
-            emoji=f"{theme.searchIcon}",
+            emoji="🔍",
             style=discord.ButtonStyle.primary,
             custom_id="search_fid",
             row=2
@@ -733,12 +848,12 @@ class MemberListView(discord.ui.View):
             print(f"Error in last_hour_callback: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
             else:
                 await interaction.followup.send(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
 
@@ -751,12 +866,12 @@ class MemberListView(discord.ui.View):
             print(f"Error in last_day_callback: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
             else:
                 await interaction.followup.send(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
 
@@ -767,7 +882,7 @@ class MemberListView(discord.ui.View):
         except Exception as e:
             print(f"Error in custom_time_callback: {e}")
             await interaction.followup.send(
-                f"{theme.deniedIcon} An error occurred while showing the time input.",
+                "❌ An error occurred while showing the time input.",
                 ephemeral=True
             )
 
@@ -787,15 +902,15 @@ class MemberListView(discord.ui.View):
         self.update_view()
         
         embed = discord.Embed(
-            title=f"{theme.levelIcon} {self.alliance_name} - Member List",
+            title=f"🔥 {self.alliance_name} - Member List",
             description=(
-                f"Select a member to view furnace history:\n"
-                f"{theme.upperDivider}\n"
+                "Select a member to view furnace history:\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"Total Members: {len(self.members)}\n"
                 f"Current Page: {self.current_page + 1}/{self.total_pages}\n"
-                f"{theme.lowerDivider}"
+                "━━━━━━━━━━━━━━━━━━━━━━"
             ),
-            color=theme.emColor1
+            color=discord.Color.blue()
         )
 
         await interaction.response.edit_message(embed=embed, view=self)
@@ -821,19 +936,19 @@ class FurnaceHistoryIDSearchModal(discord.ui.Modal, title="Search by ID"):
                 
         except ValueError:
             await interaction.response.send_message(
-                f"{theme.deniedIcon} Invalid ID format. Please enter a valid number.",
+                "❌ Invalid ID format. Please enter a valid number.",
                 ephemeral=True
             )
         except Exception as e:
             print(f"Error in FurnaceHistoryIDSearchModal on_submit: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred while searching for the player.",
+                    "❌ An error occurred while searching for the player.",
                     ephemeral=True
                 )
             else:
                 await interaction.followup.send(
-                    f"{theme.deniedIcon} An error occurred while searching for the player.",
+                    "❌ An error occurred while searching for the player.",
                     ephemeral=True
                 )
 
@@ -875,12 +990,12 @@ class MemberListViewNickname(discord.ui.View):
                 print(f"Error in member_callback: {e}")
                 if not interaction.response.is_done():
                     await interaction.response.send_message(
-                        f"{theme.deniedIcon} An error occurred while showing nickname history.",
+                        "❌ An error occurred while showing nickname history.",
                         ephemeral=True
                     )
                 else:
                     await interaction.followup.send(
-                        f"{theme.deniedIcon} An error occurred while showing nickname history.",
+                        "❌ An error occurred while showing nickname history.",
                         ephemeral=True
                     )
 
@@ -889,7 +1004,7 @@ class MemberListViewNickname(discord.ui.View):
 
         last_hour_button = discord.ui.Button(
             label="Last Hour Changes",
-            emoji=f"{theme.timeIcon}",
+            emoji="⏰",
             style=discord.ButtonStyle.primary,
             custom_id="last_hour_nick",
             row=1
@@ -899,7 +1014,7 @@ class MemberListViewNickname(discord.ui.View):
 
         last_day_button = discord.ui.Button(
             label="Last 24h Changes",
-            emoji=f"{theme.calendarIcon}",
+            emoji="📅",
             style=discord.ButtonStyle.primary,
             custom_id="last_day_nick",
             row=1
@@ -909,7 +1024,7 @@ class MemberListViewNickname(discord.ui.View):
 
         custom_time_button = discord.ui.Button(
             label="Custom Time",
-            emoji=f"{theme.settingsIcon}",
+            emoji="⚙️",
             style=discord.ButtonStyle.primary,
             custom_id="custom_time_nick",
             row=1
@@ -920,7 +1035,7 @@ class MemberListViewNickname(discord.ui.View):
         if self.total_pages > 1:
             previous_button = discord.ui.Button(
                 label="Previous",
-                emoji=f"{theme.backIcon}",
+                emoji="⬅️",
                 style=discord.ButtonStyle.secondary,
                 custom_id="previous_nick",
                 disabled=self.current_page == 0,
@@ -931,7 +1046,7 @@ class MemberListViewNickname(discord.ui.View):
 
             next_button = discord.ui.Button(
                 label="Next",
-                emoji=f"{theme.forwardIcon}",
+                emoji="➡️",
                 style=discord.ButtonStyle.secondary,
                 custom_id="next_nick",
                 disabled=self.current_page == self.total_pages - 1,
@@ -942,7 +1057,7 @@ class MemberListViewNickname(discord.ui.View):
 
         search_button = discord.ui.Button(
             label="Search by ID",
-            emoji=f"{theme.searchIcon}",
+            emoji="🔍",
             style=discord.ButtonStyle.primary,
             custom_id="search_fid_nick",
             row=2
@@ -959,12 +1074,12 @@ class MemberListViewNickname(discord.ui.View):
             print(f"Error in last_hour_callback: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
             else:
                 await interaction.followup.send(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
 
@@ -977,12 +1092,12 @@ class MemberListViewNickname(discord.ui.View):
             print(f"Error in last_day_callback: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
             else:
                 await interaction.followup.send(
-                    f"{theme.deniedIcon} An error occurred while showing recent changes.",
+                    "❌ An error occurred while showing recent changes.",
                     ephemeral=True
                 )
 
@@ -993,7 +1108,7 @@ class MemberListViewNickname(discord.ui.View):
         except Exception as e:
             print(f"Error in custom_time_callback: {e}")
             await interaction.followup.send(
-                f"{theme.deniedIcon} An error occurred while showing the time input.",
+                "❌ An error occurred while showing the time input.",
                 ephemeral=True
             )
 
@@ -1013,15 +1128,15 @@ class MemberListViewNickname(discord.ui.View):
         self.update_view()
         
         embed = discord.Embed(
-            title=f"{theme.editListIcon} {self.alliance_name} - Member List",
+            title=f"📝 {self.alliance_name} - Member List",
             description=(
-                f"Select a member to view nickname history:\n"
-                f"{theme.upperDivider}\n"
+                "Select a member to view nickname history:\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"Total Members: {len(self.members)}\n"
                 f"Current Page: {self.current_page + 1}/{self.total_pages}\n"
-                f"{theme.lowerDivider}"
+                "━━━━━━━━━━━━━━━━━━━━━━"
             ),
-            color=theme.emColor1
+            color=discord.Color.blue()
         )
 
         await interaction.response.edit_message(embed=embed, view=self)
@@ -1047,19 +1162,19 @@ class NicknameHistoryIDSearchModal(discord.ui.Modal, title="Search by ID"):
                 
         except ValueError:
             await interaction.response.send_message(
-                f"{theme.deniedIcon} Invalid ID format. Please enter a valid number.",
+                "❌ Invalid ID format. Please enter a valid number.",
                 ephemeral=True
             )
         except Exception as e:
             print(f"Error in NicknameHistoryIDSearchModal on_submit: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred while searching for the player.",
+                    "❌ An error occurred while searching for the player.",
                     ephemeral=True
                 )
             else:
                 await interaction.followup.send(
-                    f"{theme.deniedIcon} An error occurred while searching for the player.",
+                    "❌ An error occurred while searching for the player.",
                     ephemeral=True
                 )
 
@@ -1082,7 +1197,7 @@ class CustomTimeModal(discord.ui.Modal, title="Custom Time Range"):
             hours = int(self.hours.value)
             if hours < 1 or hours > 24:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} Please enter a number between 1 and 24.",
+                    "❌ Please enter a number between 1 and 24.",
                     ephemeral=True
                 )
                 return
@@ -1092,13 +1207,13 @@ class CustomTimeModal(discord.ui.Modal, title="Custom Time Range"):
                 
         except ValueError:
             await interaction.response.send_message(
-                f"{theme.deniedIcon} Please enter a valid number.",
+                "❌ Please enter a valid number.",
                 ephemeral=True
             )
         except Exception as e:
             print(f"Error in CustomTimeModal on_submit: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while processing your request.",
+                "❌ An error occurred while processing your request.",
                 ephemeral=True
             )
 
@@ -1117,15 +1232,15 @@ class RecentChangesView(discord.ui.View):
 
     def get_embed(self):
         embed = discord.Embed(
-            title=f"{theme.levelIcon} Recent Level Changes - {self.alliance_name}",
+            title=f"🔥 Recent Level Changes - {self.alliance_name}",
             description=(
                 f"Showing changes in the last {self.hours} hour(s)\n"
-                f"{theme.upperDivider}\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"Total Changes: {sum(len(chunk) for chunk in self.chunks)}\n"
                 f"Page {self.current_page + 1}/{self.total_pages}\n"
-                f"{theme.lowerDivider}\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
             ),
-            color=theme.emColor1
+            color=discord.Color.blue()
         )
 
         for fid, old_value, new_value, timestamp in self.chunks[self.current_page]:
@@ -1133,7 +1248,7 @@ class RecentChangesView(discord.ui.View):
             new_level = self.level_mapping.get(int(new_value), str(new_value))
             embed.add_field(
                 name=f"{self.members[fid]} (ID: {fid})",
-                value=f"{theme.stoveOldIcon} `{old_level}` ➜ {theme.stoveIcon} `{new_level}`\n{theme.timeIcon} {timestamp}",
+                value=f"```{old_level} ➜ {new_level}\nTime: {timestamp}```",
                 inline=False
             )
 
@@ -1146,13 +1261,13 @@ class RecentChangesView(discord.ui.View):
         self.previous_button.disabled = self.current_page == 0
         self.next_button.disabled = self.current_page == self.total_pages - 1
 
-    @discord.ui.button(label="Previous", emoji=f"{theme.prevIcon}", style=discord.ButtonStyle.secondary, custom_id="previous")
+    @discord.ui.button(label="Previous", emoji="⬅️", style=discord.ButtonStyle.secondary, custom_id="previous")
     async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_page = max(0, self.current_page - 1)
         self.update_buttons()
         await interaction.response.edit_message(embed=self.get_embed(), view=self)
 
-    @discord.ui.button(label="Next", emoji=f"{theme.nextIcon}", style=discord.ButtonStyle.secondary, custom_id="next")
+    @discord.ui.button(label="Next", emoji="➡️", style=discord.ButtonStyle.secondary, custom_id="next")
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_page = min(self.total_pages - 1, self.current_page + 1)
         self.update_buttons()
@@ -1172,21 +1287,21 @@ class RecentNicknameChangesView(discord.ui.View):
 
     def get_embed(self):
         embed = discord.Embed(
-            title=f"{theme.editListIcon} Recent Nickname Changes - {self.alliance_name}",
+            title=f"📝 Recent Nickname Changes - {self.alliance_name}",
             description=(
                 f"Showing changes in the last {self.hours} hour(s)\n"
-                f"{theme.upperDivider}\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"Total Changes: {sum(len(chunk) for chunk in self.chunks)}\n"
                 f"Page {self.current_page + 1}/{self.total_pages}\n"
-                f"{theme.lowerDivider}\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
             ),
-            color=theme.emColor1
+            color=discord.Color.blue()
         )
 
         for fid, old_name, new_name, timestamp in self.chunks[self.current_page]:
             embed.add_field(
                 name=f"{self.members[fid]} (ID: {fid})",
-                value=f"{theme.avatarOldIcon} `{old_name}` ➜ {theme.avatarIcon} `{new_name}`\n{theme.timeIcon} {timestamp}",
+                value=f"```{old_name} ➜ {new_name}\nTime: {timestamp}```",
                 inline=False
             )
 
@@ -1199,13 +1314,13 @@ class RecentNicknameChangesView(discord.ui.View):
         self.previous_button.disabled = self.current_page == 0
         self.next_button.disabled = self.current_page == self.total_pages - 1
 
-    @discord.ui.button(label="Previous", emoji=f"{theme.prevIcon}", style=discord.ButtonStyle.secondary, custom_id="previous_nick_recent")
+    @discord.ui.button(label="Previous", emoji="⬅️", style=discord.ButtonStyle.secondary, custom_id="previous_nick_recent")
     async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_page = max(0, self.current_page - 1)
         self.update_buttons()
         await interaction.response.edit_message(embed=self.get_embed(), view=self)
 
-    @discord.ui.button(label="Next", emoji=f"{theme.nextIcon}", style=discord.ButtonStyle.secondary, custom_id="next_nick_recent")
+    @discord.ui.button(label="Next", emoji="➡️", style=discord.ButtonStyle.secondary, custom_id="next_nick_recent")
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_page = min(self.total_pages - 1, self.current_page + 1)
         self.update_buttons()
@@ -1230,7 +1345,7 @@ class CustomTimeModalNickname(discord.ui.Modal, title="Custom Time Range"):
             hours = int(self.hours.value)
             if hours < 1 or hours > 24:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} Please enter a number between 1 and 24.",
+                    "❌ Please enter a number between 1 and 24.",
                     ephemeral=True
                 )
                 return
@@ -1240,13 +1355,13 @@ class CustomTimeModalNickname(discord.ui.Modal, title="Custom Time Range"):
                 
         except ValueError:
             await interaction.response.send_message(
-                f"{theme.deniedIcon} Please enter a valid number.",
+                "❌ Please enter a valid number.",
                 ephemeral=True
             )
         except Exception as e:
             print(f"Error in CustomTimeModalNickname on_submit: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while processing your request.",
+                "❌ An error occurred while processing your request.",
                 ephemeral=True
             )
 

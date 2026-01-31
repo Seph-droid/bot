@@ -1,8 +1,6 @@
 import discord
 from discord.ext import commands
 import sqlite3
-from .permission_handler import PermissionManager
-from .pimp_my_bot import theme
 
 class OtherFeatures(commands.Cog):
     def __init__(self, bot):
@@ -10,75 +8,64 @@ class OtherFeatures(commands.Cog):
         
     async def show_other_features_menu(self, interaction: discord.Interaction):
         try:
-            _, is_global = PermissionManager.is_admin(interaction.user.id)
-
             embed = discord.Embed(
-                title=f"{theme.settingsIcon} Other Features",
+                title="🔧 Other Features",
                 description=(
-                    f"This section was created according to users' requests:\n\n"
-                    f"**Available Operations**\n"
-                    f"{theme.upperDivider}\n"
-                    f"{theme.announceIcon} **Notification System**\n"
-                    f"└ Event notification system\n"
-                    f"└ Not just for Bear! Use it for any event:\n"
-                    f"   Bear - KE - Frostfire - CJ and everything else\n"
-                    f"└ Add unlimited notifications\n\n"
-                    f"{theme.fidIcon} **ID Channel**\n"
-                    f"└ Create and manage ID channels\n"
-                    f"└ Automatic ID verification system\n"
-                    f"└ Custom channel settings\n\n"
-                    f"{theme.editListIcon} **Registration System**\n"
-                    f"└ Enable/disable user self-registration (Global Admin only)\n"
-                    f"└ Users can /register to add themselves based on ID\n\n"
-                    f"{theme.listIcon} **Attendance System**\n"
-                    f"└ Manage event attendance records\n"
-                    f"└ View detailed attendance reports\n"
-                    f"└ Export attendance data to CSV, TSV, HTML\n\n"
-                    f"{theme.ministerIcon} **Minister Scheduling**\n"
-                    f"└ Manage your state minister appointments\n"
-                    f"└ Schedule Construction, Research, Training days\n"
-                    f"└ Configure minister log channels\n\n"
-                    f"{theme.saveIcon} **Backup System**\n"
-                    f"└ Automatic database backup\n"
-                    f"└ Send backups to your DMs\n"
-                    f"└ Only for Global Admin\n"
-                    f"{theme.lowerDivider}"
+                    "This section was created according to users' requests:\n\n"
+                    "**Available Operations**\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "📣 **Notification System**\n"
+                    "└ Event notification system\n"
+                    "└ Not just for Bear! Use it for any event:\n"
+                    "   Bear - KE - Frostfire - CJ and everything else\n"
+                    "└ Add unlimited notifications\n\n"
+                    "🆔 **ID Channel**\n"
+                    "└ Create and manage ID channels\n"
+                    "└ Automatic ID verification system\n"
+                    "└ Custom channel settings\n\n"
+                    "📝 **Registration System**\n"
+                    "└ Enable/disable user self-registration (Global Admin only)\n"
+                    "└ Users can /register to add themselves based on ID\n\n"
+                    "📋 **Attendance System**\n"
+                    "└ Manage event attendance records\n"
+                    "└ View detailed attendance reports\n"
+                    "└ Export attendance data to CSV, TSV, HTML\n\n"
+                    "🏛️ **Minister Scheduling**\n"
+                    "└ Manage your state minister appointments\n"
+                    "└ Schedule Construction, Research, Training days\n"
+                    "└ Configure minister log channels\n\n"
+                    "💾 **Backup System**\n"
+                    "└ Automatic database backup\n"
+                    "└ Send backups to your DMs\n"
+                    "└ Only for Global Admin\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━"
                 ),
-                color=theme.emColor1
+                color=discord.Color.blue()
             )
-
-            view = OtherFeaturesView(self, is_global)
-
+            
+            view = OtherFeaturesView(self)
+            
             try:
                 await interaction.response.edit_message(embed=embed, view=view)
             except discord.InteractionResponded:
                 pass
-
+                
         except Exception as e:
             print(f"Error in show_other_features_menu: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} An error occurred. Please try again.",
+                    "❌ An error occurred. Please try again.",
                     ephemeral=True
                 )
 
 class OtherFeaturesView(discord.ui.View):
-    def __init__(self, cog, is_global: bool = False):
+    def __init__(self, cog):
         super().__init__(timeout=None)
         self.cog = cog
-        self.is_global = is_global
-
-        # Disable global-admin-only buttons for non-global admins
-        if not is_global:
-            for child in self.children:
-                if isinstance(child, discord.ui.Button) and child.label in [
-                    "Backup System", "Registration System"
-                ]:
-                    child.disabled = True
 
     @discord.ui.button(
         label="Notification System",
-        emoji=f"{theme.announceIcon}",
+        emoji="📣",
         style=discord.ButtonStyle.primary,
         custom_id="bear_trap",
         row=0
@@ -90,19 +77,19 @@ class OtherFeaturesView(discord.ui.View):
                 await bear_trap_cog.show_bear_trap_menu(interaction)
             else:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} Bear Trap module not found.",
+                    "❌ Bear Trap module not found.",
                     ephemeral=True
                 )
         except Exception as e:
             print(f"Error loading Bear Trap menu: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while loading Bear Trap menu.",
+                "❌ An error occurred while loading Bear Trap menu.",
                 ephemeral=True
             )
 
     @discord.ui.button(
         label="ID Channel",
-        emoji=f"{theme.fidIcon}",
+        emoji="🆔",
         style=discord.ButtonStyle.primary,
         custom_id="id_channel",
         row=0
@@ -114,19 +101,19 @@ class OtherFeaturesView(discord.ui.View):
                 await id_channel_cog.show_id_channel_menu(interaction)
             else:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} ID Channel module not found.",
+                    "❌ ID Channel module not found.",
                     ephemeral=True
                 )
         except Exception as e:
             print(f"Error loading ID Channel menu: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while loading ID Channel menu.",
+                "❌ An error occurred while loading ID Channel menu.",
                 ephemeral=True
             )
 
     @discord.ui.button(
         label="Minister Scheduling",
-        emoji=f"{theme.ministerIcon}",
+        emoji="🏛️",
         style=discord.ButtonStyle.primary,
         custom_id="minister_channels",
         row=1
@@ -138,19 +125,19 @@ class OtherFeaturesView(discord.ui.View):
                 await minister_menu_cog.show_minister_channel_menu(interaction)
             else:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} Minister Scheduling module not found.",
+                    "❌ Minister Scheduling module not found.",
                     ephemeral=True
                 )
         except Exception as e:
             print(f"Error loading Minister Scheduling menu: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while loading Minister Scheduling menu.",
+                "❌ An error occurred while loading Minister Scheduling menu.",
                 ephemeral=True
             )
 
     @discord.ui.button(
         label="Backup System",
-        emoji=f"{theme.saveIcon}",
+        emoji="💾",
         style=discord.ButtonStyle.primary,
         custom_id="backup_system",
         row=2
@@ -162,19 +149,19 @@ class OtherFeaturesView(discord.ui.View):
                 await backup_cog.show_backup_menu(interaction)
             else:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} Backup System module not found.",
+                    "❌ Backup System module not found.",
                     ephemeral=True
                 )
         except Exception as e:
             print(f"Error loading Backup System menu: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while loading Backup System menu.",
+                "❌ An error occurred while loading Backup System menu.",
                 ephemeral=True
             )
-
+            
     @discord.ui.button(
         label="Registration System",
-        emoji=f"{theme.editListIcon}",
+        emoji="📝",
         style=discord.ButtonStyle.primary,
         custom_id="registration_system",
         row=0
@@ -186,19 +173,19 @@ class OtherFeaturesView(discord.ui.View):
                 await register_cog.show_settings_menu(interaction)
             else:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} Registration System module not found.",
+                    "❌ Registration System module not found.",
                     ephemeral=True
                 )
         except Exception as e:
             print(f"Error loading Registration System menu: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while loading Registration System menu.",
+                "❌ An error occurred while loading Registration System menu.",
                 ephemeral=True
             )
 
     @discord.ui.button(
         label="Attendance System",
-        emoji=f"{theme.listIcon}",
+        emoji="📋",
         style=discord.ButtonStyle.primary,
         custom_id="attendance_system",
         row=1
@@ -210,19 +197,19 @@ class OtherFeaturesView(discord.ui.View):
                 await attendance_cog.show_attendance_menu(interaction)
             else:
                 await interaction.response.send_message(
-                    f"{theme.deniedIcon} Attendance System module not found.",
+                    "❌ Attendance System module not found.",
                     ephemeral=True
                 )
         except Exception as e:
             print(f"Error loading Attendance System menu: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while loading Attendance System menu.",
+                "❌ An error occurred while loading Attendance System menu.",
                 ephemeral=True
             )
 
     @discord.ui.button(
         label="Main Menu",
-        emoji=f"{theme.homeIcon}",
+        emoji="🏠",
         style=discord.ButtonStyle.secondary,
         custom_id="main_menu",
         row=2
@@ -235,7 +222,7 @@ class OtherFeaturesView(discord.ui.View):
         except Exception as e:
             print(f"Error returning to main menu: {e}")
             await interaction.response.send_message(
-                f"{theme.deniedIcon} An error occurred while returning to main menu.",
+                "❌ An error occurred while returning to main menu.",
                 ephemeral=True
             )
 
