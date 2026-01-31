@@ -2,5 +2,6 @@
   "token": "",
   "auto_update": false,
   "language": "en",
-  "timezone": "UTC"
+  "timezone": "UTC",
+  "version": "1.4.1"
 }
