@@ -1018,12 +1018,7 @@ if __name__ == "__main__":
     from datetime import datetime
             
     # Handle update/repair logic
-    if "--repair" in sys.argv:
-        asyncio.run(check_and_update_files())
-    elif "--no-update" in sys.argv:
-        print(F.YELLOW + "Update check skipped due to --no-update flag." + R)
-    else:
-        asyncio.run(check_and_update_files())
+    print("Auto-update disabled (container mode).")
             
     import discord
     from discord.ext import commands
@@ -1312,3 +1307,4 @@ if not bot_token:
     if __name__ == "__main__":
 
         run_bot()
+
