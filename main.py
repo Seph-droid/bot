@@ -1045,28 +1045,28 @@ if __name__ == "__main__":
 
     init(autoreset=True)
 
-    bot_token = os.getenv("WOS_TOKEN")
+bot_token = os.getenv("WOS_TOKEN")
 
 if not bot_token:
     print("ERROR: No bot token found in environment variable WOS_TOKEN.")
     sys.exit(1)
 
-    if not os.path.exists("db"):
-        os.makedirs("db")
-        
-        print(F.GREEN + "db folder created" + R)
+# ⬇️ Everything below must be flush-left (no extra indentation)
+if not os.path.exists("db"):
+    os.makedirs("db")
+    print(F.GREEN + "db folder created" + R)
 
-    databases = {
-        "conn_alliance": "db/alliance.sqlite",
-        "conn_giftcode": "db/giftcode.sqlite",
-        "conn_changes": "db/changes.sqlite",
-        "conn_users": "db/users.sqlite",
-        "conn_settings": "db/settings.sqlite",
-    }
+databases = {
+    "conn_alliance": "db/alliance.sqlite",
+    "conn_giftcode": "db/giftcode.sqlite",
+    "conn_changes": "db/changes.sqlite",
+    "conn_users": "db/users.sqlite",
+    "conn_settings": "db/settings.sqlite",
+}
 
-    connections = {name: sqlite3.connect(path) for name, path in databases.items()}
+connections = {name: sqlite3.connect(path) for name, path in databases.items()}
 
-    print(F.GREEN + "Database connections have been successfully established." + R)
+print(F.GREEN + "Database connections have been successfully established." + R)
 
     def create_tables():
         with connections["conn_changes"] as conn_changes:
@@ -1307,4 +1307,5 @@ if not bot_token:
     if __name__ == "__main__":
 
         run_bot()
+
 
