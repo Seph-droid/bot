@@ -1050,14 +1050,11 @@ if __name__ == "__main__":
 
     init(autoreset=True)
 
-    token_file = "bot_token.txt"
-    if not os.path.exists(token_file):
-        bot_token = input("Enter the bot token: ")
-        with open(token_file, "w") as f:
-            f.write(bot_token)
-    else:
-        with open(token_file, "r") as f:
-            bot_token = f.read().strip()
+    bot_token = os.getenv("WOS_TOKEN")
+
+if not bot_token:
+    print("ERROR: No bot token found in environment variable WOS_TOKEN.")
+    sys.exit(1)
 
     if not os.path.exists("db"):
         os.makedirs("db")
@@ -1313,4 +1310,5 @@ if __name__ == "__main__":
             pass  # Already handled by signal handler
 
     if __name__ == "__main__":
+
         run_bot()
