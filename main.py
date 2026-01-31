@@ -4,15 +4,12 @@ import asyncio
 import sqlite3
 import discord
 from discord.ext import commands
-from colorama import init, Fore as F, Style as R
 
 # ---------------------------------------------------------
 #  BASIC STARTUP (NO UPDATER, NO REPAIR SYSTEM)
 # ---------------------------------------------------------
 
 print("Auto-update disabled (container mode).")
-
-init(autoreset=True)
 
 # ---------------------------------------------------------
 #  TOKEN LOADING (RAILWAY-SAFE)
@@ -52,7 +49,7 @@ bot = CustomBot(command_prefix="/", intents=intents)
 
 if not os.path.exists("db"):
     os.makedirs("db")
-    print(F.GREEN + "db folder created" + R)
+    print("db folder created")
 
 databases = {
     "conn_alliance": "db/alliance.sqlite",
@@ -64,7 +61,7 @@ databases = {
 
 connections = {name: sqlite3.connect(path) for name, path in databases.items()}
 
-print(F.GREEN + "Database connections have been successfully established." + R)
+print("Database connections have been successfully established.")
 
 def create_tables():
     with connections["conn_changes"] as conn_changes:
@@ -132,7 +129,7 @@ def create_tables():
             name TEXT
         )""")
 
-    print(F.GREEN + "All tables checked." + R)
+    print("All tables checked.")
 
 create_tables()
 
@@ -162,10 +159,10 @@ async def load_cogs():
             failed.append(cog)
 
     if failed:
-        print(F.RED + f"\n⚠️  {len(failed)} cog(s) failed to load:" + R)
+        print(f"\n⚠️  {len(failed)} cog(s) failed to load:")
         for cog in failed:
-            print(F.YELLOW + f"   • {cog}" + R)
-        print(F.YELLOW + "\nBot will continue with reduced functionality.\n" + R)
+            print(f"   • {cog}")
+        print("\nBot will continue with reduced functionality.\n")
 
 # ---------------------------------------------------------
 #  BOT READY EVENT
@@ -174,7 +171,7 @@ async def load_cogs():
 @bot.event
 async def on_ready():
     try:
-        print(f"{F.GREEN}Logged in as {F.CYAN}{bot.user}{R}")
+        print(f"Logged in as {bot.user}")
         await bot.tree.sync()
     except Exception as e:
         print(f"Error syncing commands: {e}")
