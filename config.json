@@ -1,3 +1,6 @@
 {
-  "auto_update": false
+  "token": "",
+  "auto_update": false,
+  "language": "en",
+  "timezone": "UTC"
 }
