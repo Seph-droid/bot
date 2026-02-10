@@ -960,40 +960,42 @@ if __name__ == "__main__":
                             
                         for root, _, files in os.walk(update_dir):
                             for file in files:
-                                if file == "main.py":
-                                    continue
-                                    
                                 src_path = os.path.join(root, file)
                                 rel_path = os.path.relpath(src_path, update_dir)
                                 dst_path = os.path.join(".", rel_path)
-                                
+
+                                # Protect main.py from being overwritten by updates
+                                if rel_path.endswith("main.py"):
+                                    print(F.YELLOW + "Skipping protected file: main.py" + R)
+                                    continue
+
                                 # Skip certain files that shouldn't be overwritten
                                 if file in ["bot_token.txt", "version"] or dst_path.startswith("db/") or dst_path.startswith("db\\"):
                                     continue
-                                
+
                                 os.makedirs(os.path.dirname(dst_path), exist_ok=True)
 
                                 # Only backup cogs Python files (.py extension)
                                 norm_path = dst_path.replace("\\", "/")
                                 is_cogs_file = (norm_path.startswith("cogs/") or norm_path.startswith("./cogs/")) and file.endswith(".py")
-                                
+
                                 if is_cogs_file and os.path.exists(dst_path):
                                     # Calculate file hashes to check if backup is needed
                                     src_hash = calculate_file_hash(src_path)
                                     dst_hash = calculate_file_hash(dst_path)
-                                    
+
                                     if src_hash != dst_hash:
                                         # Files are different, create backup
                                         cogs_bak_dir = "cogs.bak"
                                         os.makedirs(cogs_bak_dir, exist_ok=True)
-                                        
+
                                         # Get relative path within cogs directory
                                         rel_path_in_cogs = os.path.relpath(dst_path, "cogs")
                                         backup_path = os.path.join(cogs_bak_dir, rel_path_in_cogs)
-                                        
+
                                         # Create subdirectories in backup if needed
                                         os.makedirs(os.path.dirname(backup_path), exist_ok=True)
-                                        
+
                                         try:
                                             # Remove old backup if exists
                                             if os.path.exists(backup_path):
@@ -1002,7 +1004,7 @@ if __name__ == "__main__":
                                             shutil.copy2(dst_path, backup_path)
                                         except Exception as e:
                                             print(F.YELLOW + f"Could not create backup of {dst_path}: {e}" + R)
-                                        
+
                                 try:
                                     shutil.copy2(src_path, dst_path)
                                 except Exception as e:
@@ -1314,6 +1316,3 @@ if __name__ == "__main__":
 
     if __name__ == "__main__":
         run_bot()
-
-
-
