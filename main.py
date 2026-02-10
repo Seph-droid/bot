@@ -1059,13 +1059,9 @@ if __name__ == "__main__":
 
     init(autoreset=True)
 
-# Token is loaded from environment or config — skip interactive prompt
-    with open(token_file, "r") as f:
-        bot_token = f.read().strip()
-
+# Create database directory if missing
     if not os.path.exists("db"):
         os.makedirs("db")
-        
         print(F.GREEN + "db folder created" + R)
 
     databases = {
@@ -1318,5 +1314,6 @@ if __name__ == "__main__":
 
     if __name__ == "__main__":
         run_bot()
+
 
 
