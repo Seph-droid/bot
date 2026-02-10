@@ -843,18 +843,17 @@ if __name__ == "__main__":
                 print()
                 
                 update = False
-                
+
                 if not is_container():
                     if "--autoupdate" in sys.argv or repair_mode:
                         update = True
                     else:
-                        print("Note: If your terminal is not interactive, you can use the --autoupdate argument to skip this prompt.")
-                        ask = input("Do you want to update? (y/n): ").strip().lower()
-                        update = ask == "y"
+                        print("Non-interactive mode detected — skipping update prompt.")
+                        update = False
                 else:
                     print(F.YELLOW + "Running in a container. Skipping update prompt." + R)
-                    update = True
-                    
+                    update = False
+
                 if update:
                     # Backup requirements.txt for dependency comparison
                     if os.path.exists("requirements.txt"):
@@ -1324,3 +1323,4 @@ if __name__ == "__main__":
 
     if __name__ == "__main__":
         run_bot()
+
