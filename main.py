@@ -1059,14 +1059,9 @@ if __name__ == "__main__":
 
     init(autoreset=True)
 
-    token_file = "bot_token.txt"
-    if not os.path.exists(token_file):
-        bot_token = input("Enter the bot token: ")
-        with open(token_file, "w") as f:
-            f.write(bot_token)
-    else:
-        with open(token_file, "r") as f:
-            bot_token = f.read().strip()
+# Token is loaded from environment or config — skip interactive prompt
+    with open(token_file, "r") as f:
+        bot_token = f.read().strip()
 
     if not os.path.exists("db"):
         os.makedirs("db")
@@ -1323,4 +1318,5 @@ if __name__ == "__main__":
 
     if __name__ == "__main__":
         run_bot()
+
 
