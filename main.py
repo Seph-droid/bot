@@ -833,14 +833,18 @@ if __name__ == "__main__":
                 print()
                 
                 update = False
-                
+
                 if not is_container():
                     if "--autoupdate" in sys.argv or repair_mode:
                         update = True
                     else:
-                        print("Note: If your terminal is not interactive, you can use the --autoupdate argument to skip this prompt.")
-                        ask = input("Do you want to update? (y/n): ").strip().lower()
-                        update = ask == "y"
+                        AUTO_UPDATE = os.getenv("FROSTBYTE_AUTO_UPDATE", "false").lower() == "true"
+
+                        if AUTO_UPDATE:
+                            update = True
+                        else:
+                            update = False
+                            print(F.YELLOW + "New version available, but auto-update is disabled (FROSTBYTE_AUTO_UPDATE=false)." + R)
                 else:
                     print(F.YELLOW + "Running in a container. Skipping update prompt." + R)
                     update = True
@@ -1313,4 +1317,5 @@ if __name__ == "__main__":
             pass  # Already handled by signal handler
 
     if __name__ == "__main__":
+
         run_bot()
